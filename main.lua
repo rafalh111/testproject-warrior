@@ -13,6 +13,7 @@ local EnemyDefinitions = require("combat.enemieslist")
 local yetAnotherEnemies = require("combat.yetanotherenemies")
 local player = require("playerstuff.player")
 local leveling = require("playerstuff.leveling")
+local EnemySpawn = require("combat.enemyspawn")
 
 -- Player name
 playerName = ""
@@ -64,17 +65,9 @@ function love.load()
 	bullets:init(world, enemies, player)-- 1. Inicjalizacja świata Windfielda dla pocisków
 	bullets:load()-- 2. Załadowanie innych zasobów
 	enemies:init(world)-- 3. Inicjalizacja świata Windfielda dla wrogów
+
+	EnemySpawn.spawnInitialWave(enemies, EnemyDefinitions)
 	
-	-- Tworzy pierwszego Slime'a w centrum (100, 100)
-	enemies:spawnEnemy(EnemyDefinitions.SLIME_ID, 100, 100, nil, nil)
-
-	-- Pętla tworząca dodatkowe 50 Slime'ów w promieniu około 100 jednostek od (100, 100)
-	for i = 1, 50 do
-    	local randomX = 100 + love.math.random(-50, 50) -- Losowa pozycja X w zakresie 50 jednostek od 100
-    	local randomY = 100 + love.math.random(-50, 50) -- Losowa pozycja Y w zakresie 50 jednostek od 100
-    	enemies:spawnEnemy(EnemyDefinitions.SLIME_ID, randomX, randomY, nil, nil)
-	end
-
 	menu = require("menu")
 	gameState = "menu"
 	menu:init()
@@ -162,18 +155,6 @@ function love.load()
     
     -- 3. Przekazuje tę listę do systemu pocisków.
     bullets:setWalls(walls)
-
-	if gameMap.layers["Dummy"] then
-		for _, obj in pairs(gameMap.layers["Dummy"].objects) do
-			enemies:spawnDummy(obj.x, obj.y, obj.width, obj.height)
-		end
-	end
-
-	if gameMap.layers["BigDummy"] then
-		for _, obj in pairs(gameMap.layers["BigDummy"].objects) do
-			enemies:spawnBigDummy(obj.x, obj.y, obj.width, obj.height)
-		end
-	end
 
 	debugMode = false
 	print("Game loaded with state:", gameState)

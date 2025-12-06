@@ -6,7 +6,6 @@ local dungeon = {}
 -- It also converts wall tiles into rectangular objects, caches chunks to
 -- disk (`chunks/`), and can create physics colliders when a physics world
 -- is provided.
-
 -- External libraries
 local serpent = require("libraries/serpent")
 local structures = require("maps.structures") 

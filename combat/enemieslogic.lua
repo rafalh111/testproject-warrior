@@ -6,18 +6,21 @@ local leveling = require("playerstuff.leveling")
 
 
 function EnemiesLogic:init(world)
-	self.world = world
-	self.list = {}
-	self.damageTexts = {}
-	-- Ładowanie rendererów
-	enemyRenderers.SLIME_RENDER = require("combat.yetanotherenemies")
-	
+    self.world = world
+    self.list = {}
+    self.damageTexts = {}
+    
+    -- Ładowanie rendererów
+    -- POPRAWKA: Przekazujemy listę definicji do renderera, aby mógł załadować wszystkie sprite'y.
+    enemyRenderers.SLIME_RENDER = require("combat.yetanotherenemies") -- Zakładam, że yetanotherenemies to teraz SlimeRenderer
+
 	-- Inicjalizacja rendererów
-	for _, renderer in pairs(enemyRenderers) do
-		if renderer.init then renderer.init(world) end
-		if renderer.load then renderer.load() end
+		for _, renderer in pairs(enemyRenderers) do
+    	-- DODAJ TO: Przekaż EnemyDefinitions do init()
+    		if renderer.init then renderer.init(EnemyDefinitions) end 
+    		if renderer.load then renderer.load() end
+		end
 	end
-end
 
 -- Funkcja pomocnicza do tworzenia dowolnego wroga
 local function createEnemy(self, typeId, x, y, w, h)
@@ -55,14 +58,19 @@ local function createEnemy(self, typeId, x, y, w, h)
 	enemy.collider.parent = enemy 
 	
 	-- Skala slime'a itd xd
-	if def.renderKey == "SLIME_RENDER" then
-		enemy.currentFrame = 1
-		enemy.animationTimer = 0
-		enemy.scale = 4.0
-	end
+    if def.renderKey == "SLIME_RENDER" then
+    enemy.currentFrame = 1
+    enemy.animationTimer = 0
 
-	table.insert(self.list, enemy)
-	return enemy -- Zwracamy stworzonego wroga
+    -- POPRAWKA: Pobieramy skalę z definicji
+    enemy.scale = def.renderData and def.renderData.defaultScale or 4.0
+
+    -- POPRAWKA: Zapisujemy renderData (KRYTYCZNE)
+    enemy.renderData = def.renderData 
+end
+
+    table.insert(self.list, enemy)
+    return enemy
 end
 
 -- Funkcja do spawnowania "Dummy"
@@ -83,21 +91,23 @@ end
 
 -- Sumowanie dmg
 function EnemiesLogic:takeDamage(enemy)
-	local dmg = player.damage or 1 
+    local dmg = player.damage or 1 
 
-	enemy.hp = enemy.hp - dmg 
-	enemy.damageTakenThisFrame = enemy.damageTakenThisFrame + dmg 
-	
-	if enemy.hp <= 0 then
-		if enemy.id == EnemyDefinitions.SLIME_ID then
-			-- Dla Slime'a
-			enemy.hp = 0
-			enemy.isDead = true
-		else
-			-- Dla Dummy/BigDummy
-			enemy.hp = enemy.maxHp
-		end
-	end
+    enemy.hp = enemy.hp - dmg 
+    enemy.damageTakenThisFrame = enemy.damageTakenThisFrame + dmg 
+    
+    if enemy.hp <= 0 then
+        local def = EnemyDefinitions.list[enemy.id]
+        
+        -- Wszyscy wrogowie, którzy NIE są statyczni (isStatic == false), powinni umierać
+        if not def.isStatic then
+             enemy.hp = 0
+             enemy.isDead = true
+        else
+            -- Dummy/BigDummy są statyczne (isStatic == true) i regenerują się
+            enemy.hp = enemy.maxHp
+        end
+    end
 end
 
 function EnemiesLogic:update(dt)

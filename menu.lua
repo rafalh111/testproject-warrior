@@ -292,7 +292,9 @@ function menu:keypressed(key)
             end
         elseif key == "return" or key == "kpenter" then
             if menu.playerNameInput ~= "" then
-                player.name = menu.playerNameInput 
+                playerName = menu.playerNameInput 
+            else
+                playerName = "blank"
             end
             menu.nameInputActive = false
             menu.nameEntered = true

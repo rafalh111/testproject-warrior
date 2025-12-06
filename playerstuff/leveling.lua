@@ -31,7 +31,7 @@ Leveling.upgradeStats = {
     STR = { baseKey = "baseDamage", value = 5, name = "Damage (+5% Bazowej)" },
     MANA = { baseKey = "baseMaxMana", value = 5, name = "Max Mana (+5% Bazowej)" },
     STAMINA = { baseKey = "baseMaxStamina", value = 5, name = "Max Stamina (+5% Bazowej)" },
-    SPEED = { baseKey = "baseSpeed", value = 5, name = "Movement Speed (+5% Bazowej)" },
+    SPEED = { baseKey = "baseSpeed", value = 1, name = "Movement Speed (+1% Bazowej)" },
 }
 
 

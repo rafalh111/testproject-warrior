@@ -337,7 +337,7 @@ function player:draw()
                 rotation = -math.pi*2
                 drawWeaponFirst = true
             elseif self.anim == self.animations.down then
-                wy = wy + distance - 50
+                wy = wy + distance - 35
                 rotation = math.pi*2
             elseif self.anim == self.animations.left then
                 wx = wx - distance / 3
