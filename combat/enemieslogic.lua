@@ -11,12 +11,10 @@ function EnemiesLogic:init(world)
     self.damageTexts = {}
     
     -- Ładowanie rendererów
-    -- POPRAWKA: Przekazujemy listę definicji do renderera, aby mógł załadować wszystkie sprite'y.
-    enemyRenderers.SLIME_RENDER = require("combat.yetanotherenemies") -- Zakładam, że yetanotherenemies to teraz SlimeRenderer
+    enemyRenderers.SLIME_RENDER = require("combat.SlimeRenderer")
 
 	-- Inicjalizacja rendererów
 		for _, renderer in pairs(enemyRenderers) do
-    	-- DODAJ TO: Przekaż EnemyDefinitions do init()
     		if renderer.init then renderer.init(EnemyDefinitions) end 
     		if renderer.load then renderer.load() end
 		end
