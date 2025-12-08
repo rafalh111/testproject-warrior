@@ -1,6 +1,6 @@
 local player = {}
 
--- Moduły
+-- Moduły (powinny znajdować się w folderze playerstuff/player/)
 local Stats = require("playerstuff.player.stats")
 local Movement = require("playerstuff.player.movement")
 local Combat = require("playerstuff.player.combat")
@@ -27,7 +27,7 @@ function player:load(world, anim8)
     }
     self.anim = self.animations.down
 
-    -- Inicjalizacja modułów
+    -- Inicjalizacja modułów (w nich są teraz wszystkie zmienne stanu: hp, ammo, speed, itp.)
     Stats:init(self)
     Movement:init(self)
     Combat:init(self)
@@ -53,7 +53,7 @@ function player:update(dt)
     self.y = self.collider:getY()
     self.anim:update(dt)
     
-    Stats:calculate(self)
+    Stats:calculate(self) -- Przeliczanie statów (bonusy z ekwipunku)
 end
 
 function player:keypressed(key)
@@ -75,58 +75,63 @@ function player:mousepressed(mx, my, button)
     if _G.gameState ~= "playing" then return end
     if button ~= 1 then return end
     
-    -- Przekazujemy 'cam' (kamerę) globalnie lub upewnij się że jest dostępna
     -- Zakładam że 'cam' jest globalną zmienną z Twojego kodu
     Combat:shoot(self, mx, my, cam) 
 end
 
 function player:draw()
-    -- Rysowanie playera (zostawiłem tutaj, bo jest mocno powiązane z grafiką)
     local distance = 40
     local weaponItem = _G.inventory and _G.inventory.getEquippedWeapon and _G.inventory:getEquippedWeapon()
 
+    -- === 1. RYSOWANIE GRACZA I BRONI ===
     local function drawPlayerAndWeapon()
-        local wx, wy = self.x, self.y + self.jumpHeight
-        -- ... (Tutaj wklej całą logikę rysowania z oryginalnego pliku, linie 330-385)
-        -- Skróciłem to tutaj dla czytelności, ale wklej całą funkcję drawWeaponFirst itd.
-        
-        -- W skrócie: skopiuj całe wnętrze drawPlayerAndWeapon z oryginału
+        -- Zabezpieczenie przed błędem, jeśli animacja jest zatrzymana, wróć do domyślnej
+        if not self.anim then self.anim = self.animations.down end
+
         if weaponItem and weaponItem.data and weaponItem.data.image then
-             -- ... kod rysowania broni
-             local weaponImg = weaponItem.data.image
-             local rotation = 0
-             local sx, sy = 0.5, 0.5
-             local drawWeaponFirst = false
-             
-             if self.anim == self.animations.up then
+            local weaponImg = weaponItem.data.image
+            local wx, wy = self.x, self.y + self.jumpHeight
+            local rotation = 0
+            local sx, sy = 0.5, 0.5
+            local drawWeaponFirst = false
+
+            if self.anim == self.animations.up then
                 wy = wy + distance / 8
                 rotation = -math.pi*2
                 drawWeaponFirst = true
-             elseif self.anim == self.animations.down then
+            elseif self.anim == self.animations.down then
                 wy = wy + distance - 35
                 rotation = math.pi*2
-             elseif self.anim == self.animations.left then
+            elseif self.anim == self.animations.left then
                 wx = wx - distance / 3
                 wy = wy + 10
                 rotation = math.pi/32
-             elseif self.anim == self.animations.right then
+            elseif self.anim == self.animations.right then
                 wx = wx + distance / 3
                 wy = wy + 10
                 rotation = -math.pi/32
                 sx = -0.5
-             end
-             
-             local function drawWep()
-                love.graphics.draw(weaponImg, wx, wy, rotation, sx, sy, weaponImg:getWidth()/2, weaponImg:getHeight()/2)
-             end
-             
-             if drawWeaponFirst then
-                drawWep()
+            end
+
+            local function drawWeapon()
+                love.graphics.draw(
+                    weaponImg,
+                    wx,
+                    wy,
+                    rotation,
+                    sx, sy,
+                    weaponImg:getWidth()/2,
+                    weaponImg:getHeight()/2
+                )
+            end
+
+            if drawWeaponFirst then
+                drawWeapon()
                 self.anim:draw(self.spritesheet, self.x, self.y + self.jumpHeight, nil, 6, 6, 6, 9)
-             else
+            else
                 self.anim:draw(self.spritesheet, self.x, self.y + self.jumpHeight, nil, 6, 6, 6, 9)
-                drawWep()
-             end
+                drawWeapon()
+            end
         else
             self.anim:draw(self.spritesheet, self.x, self.y + self.jumpHeight, nil, 6, 6, 6, 9)
         end
@@ -134,35 +139,58 @@ function player:draw()
 
     drawPlayerAndWeapon()
 
-    -- HUD i Paski (też zostawiamy tutaj, bo to stricte wyświetlanie)
-    -- ... (wklej resztę draw z oryginału)
-    
-    -- HUD AMMO
+    -- === 2. HUD AMUNICJI (ORYGINALNA IMPLEMENTACJA) ===
     if weaponItem and weaponItem.data and (weaponItem.data.name == "AssaultRifle" or weaponItem.data.name == "Shotgun") then
-       -- ... kod rysowania napisu ammo
-       local w, h = love.graphics.getWidth(), love.graphics.getHeight()
-       if self.reloading then
-           love.graphics.printf("RELOADING...", 0, h-50, w-100, "center", 0, 2, 2)
-       else
-           love.graphics.printf("Ammo: "..self.currentAmmo.."/"..self.currentExtraAmmo, 0, h-50, w-100, "center", 0, 2, 2)
-       end
+        love.graphics.push()
+        love.graphics.origin() -- Rysowanie na ekranie (stałe)
+        love.graphics.setColor(1,1,1)
+        local w, h = love.graphics.getWidth(), love.graphics.getHeight()
+
+        -- Używamy pól 'currentAmmo' i 'currentExtraAmmo', które są ustawiane w Stats:calculate
+        local currentAmmo = self.currentAmmo or 0
+        local maxAmmo = self.currentExtraAmmo or 0
+
+        -- ORYGINALNE WSPÓŁRZĘDNE: x=0, y=h-50, width=w-100, align="center"
+        if self.reloading then
+            love.graphics.printf("RELOADING...", 0, h-50, w-100, "center", 0, 2, 2)
+        else
+            love.graphics.printf("Ammo: "..currentAmmo.."/"..maxAmmo, 0, h-50, w-100, "center", 0, 2, 2)
+        end
+        love.graphics.pop()
+    end
+    
+    -- === 3. RYSOWANIE PASKA STAMINY ===
+    if self.stamina < self.maxStamina then
+        local barWidth = 50
+        local barHeight = 6
+        local barOffsetY = 50
+        local barX = self.x - barWidth / 2
+        local barY = self.y + barOffsetY + self.jumpHeight
+
+        love.graphics.setColor(0.2, 0.2, 0.2)
+        love.graphics.rectangle("fill", barX, barY, barWidth, barHeight, 3, 3)
+
+        local staminaWidth = (self.stamina / self.maxStamina) * barWidth
+        love.graphics.setColor(0.1, 0.8, 0.2)
+        love.graphics.rectangle("fill", barX, barY, staminaWidth, barHeight, 3, 3)
+
+        love.graphics.setColor(1,1,1)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", barX, barY, barWidth, barHeight, 3, 3)
     end
 
-    -- Pasek Staminy (bez zmian)
-    if self.stamina < self.maxStamina then
-        local barX = self.x - 25
-        local barY = self.y + 50 + self.jumpHeight
-        love.graphics.setColor(0.2, 0.2, 0.2)
-        love.graphics.rectangle("fill", barX, barY, 50, 6)
-        love.graphics.setColor(0.1, 0.8, 0.2)
-        love.graphics.rectangle("fill", barX, barY, (self.stamina/self.maxStamina)*50, 6)
-        love.graphics.setColor(1,1,1)
-        love.graphics.rectangle("line", barX, barY, 50, 6)
-    end
-    
-    -- Nick
+    -- === 4. NICK GRACZA ===
     if self.name then
+        love.graphics.setColor(1,1,1)
         love.graphics.printf(self.name, self.x-50, self.y-70+self.jumpHeight, 100, "center")
+    end
+
+    -- DEBUG hitbox
+    if debugMode and self.collider then
+        love.graphics.setColor(1,0,0,0.5)
+        local cx, cy = self.collider:getPosition()
+        love.graphics.rectangle("line", cx-self.width/2, cy-self.height/2+self.jumpHeight, self.width, self.height)
+        love.graphics.setColor(1,1,1)
     end
 end
 
