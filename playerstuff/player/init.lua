@@ -72,7 +72,7 @@ end
 
 function player:mousepressed(mx, my, button)
     if leveling.levelUpAvailable then return end
-    if _G.gameState ~= "playing" then return end
+    if _G.Game.state ~= "playing" then return end
     if button ~= 1 then return end
     
     -- Zakładam że 'cam' jest globalną zmienną z Twojego kodu

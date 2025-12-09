@@ -1,4 +1,3 @@
-local bullets = require("combat.bullets")
 local Combat = {}
 
 function Combat:init(player)
