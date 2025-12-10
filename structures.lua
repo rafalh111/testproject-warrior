@@ -11,7 +11,7 @@ local structures = {
         width = 64,
         height = 64,
         type = "decor",
-        intendedScale = {x = 0.8, y = 0.8}
+        intendedScale = {x = 0.3, y = 0.3}
     }
 }
 
