@@ -1,102 +1,163 @@
 local utf8 = require("utf8")
 local menu = {}
 
--- STAN MENU
+-- CZCIONKI (OK)
+local largeFont = love.graphics.newFont(24) 
+local smallFont = love.graphics.newFont(12) 
+local inputFont = love.graphics.newFont(20) 
+
+-- STAN MENU (OK)
 menu.buttons = {}
 menu.selectedButton = 1
 
 -- Flagi do imienia
-menu.nameEntered = false
-menu.nameInputActive = false
+menu.gameStarted = false 
 menu.playerNameInput = ""
+local PLAYER_NAME_MAX_LENGTH = 16
 
--- Panel ustawień
+-- Panel ustawień (Zostawiamy tylko stałe rozmiary)
 menu.settingsOpen = false
-menu.volume = 1 -- 0.0 - 1.0
-menu.fpsLimit = 60 -- max fps
-menu.settingsX = 315
-menu.settingsY = 150
-menu.settingsWidth = 400
-menu.settingsHeight = 300
-local smallFont = love.graphics.newFont(12)
+menu.volume = 1 
+menu.fpsLimit = 60 
+-- Zmienione na lokalne stałe, aby użyć ich do centrowania:
+local SETTINGS_WIDTH = 400
+local SETTINGS_HEIGHT = 300
 
--- Ustawienie Klawiszy
+-- (Reszta ustawień, keyBindings itp., bez zmian)
 menu.keyBindings = {
-Up = "w",
-Left = "a",
-Down = "s",
-Right = "d",
-Inventory = "e",
-Sprint = "lshift",
-Jump = "space",
-Reload = "r",
+    Up = "w", Left = "a", Down = "s", Right = "d",
+    Inventory = "e", Sprint = "lshift", Jump = "space", Reload = "r",
 }
 menu.keySettingOpen = false
 menu.editingKey = nil 
-
--- NAWIGACJA W USTAWIACH
 menu.settingsSelected = 1 
 menu.settingsMax = 3
-
--- NAWIGACJA W KEY BINDINGS
 menu.keyBindingsSelected = 1
 local keyNamesSorted = {} 
 
--- FUNKCJA ZMODYFIKOWANA: Zwraca stałą listę akcji w preferowanej kolejności
 local function GetSortedKeyNames()
     return {
-        "Up",
-        "Left",
-        "Down",
-        "Right",
-        "Inventory",
-        "Sprint",
-        "Jump",
-        "Reload",
+        "Up", "Left", "Down", "Right", "Inventory", 
+        "Sprint", "Jump", "Reload",
     }
 end
 
--- Start menu
-function menu:init()
-    menu.buttons = {
-        {text = "Start", action = "start"},
-        {text = "Options", action = "options"},
-        {text = "Quit", action = "quit"}
-    }
+-- NOWA FUNKCJA: Aktualizacja listy przycisków
+function menu:updateButtons(Game)
+    menu.buttons = {}
+    
+    local hasName = Game and Game.player and Game.player.name and Game.player.name ~= "NO NAME"
+    
+    if menu.gameStarted and hasName then
+        table.insert(menu.buttons, {text = "Continue", action = "continue"})
+        table.insert(menu.buttons, {text = "New Game", action = "start"})
+    else
+        table.insert(menu.buttons, {text = "Start", action = "start"})
+    end
+    
+    table.insert(menu.buttons, {text = "Options", action = "options"})
+    table.insert(menu.buttons, {text = "Quit", action = "quit"})
+
+    menu.selectedButton = math.min(menu.selectedButton, #menu.buttons)
+end
+
+-- Start menu (OK)
+function menu:init(Game)
+    menu:updateButtons(Game) 
     menu.buttonWidth = 200
     menu.buttonHeight = 50
     menu.buttonSpacing = 20
 end
 
+-- === POPRAWIONA FUNKCJA: WZNAWIANIE GRY I PRZELICZANIE HUD ===
+function menu:resumeGame(Game)
+    Game.state = "playing"
+    love.keyboard.setTextInput(false) 
+
+    -- ** POPRAWKA CZCIONKI: GWARANCJA POPRAWNEGO ROZMIARU DLA HUD **
+    -- Ustawienie smallFont, aby nadpisać inputFont, który został ustawiony w trybie nick_input.
+    love.graphics.setFont(smallFont) 
+    -- ***************************************************************
+    
+    -- Krok 1: Wymuszenie odświeżenia KONTROLEK DOTYKOWYCH (NAPRAWIA SKALOWANIE HUD/AMMO)
+    if Game.controls and Game.controls.refreshControls then
+        Game.controls:refreshControls()
+    end
+    
+    -- Wymuszamy ręczne przeliczenie pozycji HUD po powrocie do gry
+    if type(Game.bars) == 'table' and Game.bars.recalculatePosition then
+        Game.bars:recalculatePosition()
+    end
+    
+    if type(Game.minimap) == 'table' and Game.minimap.recalculatePosition then
+        -- Używamy Game.map przekazanego z main.lua
+        Game.minimap:recalculatePosition(Game.map) 
+    end
+end
+--------------------------------------------------------
+
 -- Rysowanie menu
-function menu.draw()
+function menu.draw(Game) 
     local screenWidth = love.graphics.getWidth()
     local screenHeight = love.graphics.getHeight()
+    
+    if Game.state == "menu" then
+        menu:updateButtons(Game) 
+    end
 
     love.graphics.setColor(1, 1, 1)
+    love.graphics.setFont(largeFont) 
     love.graphics.printf("TESTPROJECT", 0, 100, screenWidth, "center")
 
-    -- Panel ustawień
+    -- === RYSOWANIE POLA INPUTU ZALEŻNE OD Game.state ===
+    if Game.state == "nick_input" then 
+        love.graphics.setFont(inputFont) 
+        local prompt = "Enter your name: " .. menu.playerNameInput .. (love.timer.getTime() % 1 < 0.5 and "|" or "")
+        
+        local inputX = screenWidth / 2 - 200
+        local inputY = screenHeight / 2 - 30
+        local inputW = 400
+        local inputH = 60
+        
+        love.graphics.setColor(0.1, 0.1, 0.1, 0.8)
+        love.graphics.rectangle("fill", inputX, inputY, inputW, inputH, 10)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.rectangle("line", inputX, inputY, inputW, inputH, 10)
+
+        love.graphics.printf(prompt, inputX + 10, inputY + 15, inputW - 20, "left")
+        return 
+    end
+    --------------------------------------------------------------------
+    
+    -- === NOWE DYNAMICZNE WYSRODKOWANIE DLA USTAWIEN ===
+    local settingsX = screenWidth / 2 - SETTINGS_WIDTH / 2
+    local settingsY = screenHeight / 2 - SETTINGS_HEIGHT / 2
+
+    -- Panel ustawień (OK)
     if menu.settingsOpen then
+        -- POPRAWKA FONTU: Ustaw smallFont przed rysowaniem ustawień (jeśli weszliśmy bezpośrednio z menu głównego)
+        love.graphics.setFont(smallFont) 
+        
         love.graphics.setColor(0,0,0,0.8)
-        love.graphics.rectangle("fill", menu.settingsX, menu.settingsY, menu.settingsWidth, menu.settingsHeight, 10, 10)
+        -- Używamy dynamicznych X i Y
+        love.graphics.rectangle("fill", settingsX, settingsY, SETTINGS_WIDTH, SETTINGS_HEIGHT, 10, 10)
         love.graphics.setColor(1,1,1)
-        love.graphics.rectangle("line", menu.settingsX, menu.settingsY, menu.settingsWidth, menu.settingsHeight, 10, 10)
+        love.graphics.rectangle("line", settingsX, settingsY, SETTINGS_WIDTH, SETTINGS_HEIGHT, 10, 10)
         love.graphics.setFont(smallFont)
-        love.graphics.printf("Settings", menu.settingsX, menu.settingsY + 10, menu.settingsWidth, "center")
+        love.graphics.printf("Settings", settingsX, settingsY + 10, SETTINGS_WIDTH, "center")
 
         if menu.keySettingOpen then
-            love.graphics.printf("Key Bindings: Esc - Back, Up/Down/WASD - Navigate, Enter/Space - Edit", menu.settingsX + 20, menu.settingsY + 30, menu.settingsWidth-40, "left")
-
-            local keyY = menu.settingsY + 70
+            love.graphics.printf("Key Bindings: Esc - Back, Up/Down/WASD - Navigate, Enter/Space - Edit", settingsX + 20, settingsY + 30, SETTINGS_WIDTH-40, "left")
+            local keyY = settingsY + 70
             keyNamesSorted = GetSortedKeyNames()
 
             for i, name in ipairs(keyNamesSorted) do
                 local key = menu.keyBindings[name]
-                local x = menu.settingsX + 20
-                local w = menu.settingsWidth - 40
+                local x = settingsX + 20
+                local w = SETTINGS_WIDTH - 40
                 local h = 20
-                local keyTextX = x + w/2 + 20
+                -- POPRAWKA: Dynamiczna pozycja dla tekstu klucza (przesunięcie na prawo w panelu)
+                local keyTextX = settingsX + SETTINGS_WIDTH * 0.7 - 30 -- Przesunięcie na ok. 70% szerokości panelu
                 local keyTextW = 60
 
                 if i == menu.keyBindingsSelected and not menu.editingKey then
@@ -113,7 +174,8 @@ function menu.draw()
                     love.graphics.printf(string.upper(key), keyTextX, keyY + 5, keyTextW, "center")
                 else
                     love.graphics.setColor(1, 1, 1)
-                    love.graphics.printf(name, x, keyY, w/2, "left")
+                    -- POPRAWKA: Użycie mniejszej szerokości dla tekstu nazwy klucza, aby nie nachodził na wartość
+                    love.graphics.printf(name, x, keyY, SETTINGS_WIDTH*0.4, "left") 
 
                     love.graphics.setColor(0.2, 0.2, 0.2, 1)
                     love.graphics.rectangle("fill", keyTextX, keyY, keyTextW, h)
@@ -126,37 +188,34 @@ function menu.draw()
             return
         end
 
-        -- === STANDARDOWE USTAWIENIA ===
-        -- 1. Głośność
-        local volX, volY, volW, volH = menu.settingsX+20, menu.settingsY+70, menu.settingsWidth-40, 15
+        -- STANDARDOWE USTAWIENIA (OK) - Używają dynamicznych X i Y (settingsX, settingsY)
+        local volX, volY, volW, volH = settingsX+20, settingsY+70, SETTINGS_WIDTH-40, 15
         if menu.settingsSelected == 1 then
             love.graphics.setColor(0.9, 0.5, 0.1, 1)
-            love.graphics.rectangle("line", volX - 5, menu.settingsY+50 - 5, volW + 10, volY + volH - (menu.settingsY+50) + 25)
+            love.graphics.rectangle("line", volX - 5, settingsY+50 - 5, volW + 10, volY + volH - (settingsY+50) + 25)
             love.graphics.setColor(1,1,1)
         end
-        love.graphics.printf("Volume: "..math.floor(menu.volume*100).."%", menu.settingsX+20, menu.settingsY+50, menu.settingsWidth-40, "left")
+        love.graphics.printf("Volume: "..math.floor(menu.volume*100).."%", settingsX+20, settingsY+50, SETTINGS_WIDTH-40, "left")
         love.graphics.setColor(0.3,0.3,0.3)
         love.graphics.rectangle("fill", volX, volY, volW, volH)
         love.graphics.setColor(0.1,0.8,0.1)
         love.graphics.rectangle("fill", volX, volY, volW*menu.volume, volH)
         
-        -- 2. FPS
-        local fpsX, fpsY, fpsW, fpsH = menu.settingsX+20, menu.settingsY+130, menu.settingsWidth-40, 15
+        local fpsX, fpsY, fpsW, fpsH = settingsX+20, settingsY+130, SETTINGS_WIDTH-40, 15
         if menu.settingsSelected == 2 then
             love.graphics.setColor(0.9, 0.5, 0.1, 1)
-            love.graphics.rectangle("line", fpsX - 5, menu.settingsY+110 - 5, fpsW + 10, fpsY + fpsH - (menu.settingsY+110) + 25)
+            love.graphics.rectangle("line", fpsX - 5, settingsY+110 - 5, fpsW + 10, fpsY + fpsH - (settingsY+110) + 25)
             love.graphics.setColor(1,1,1)
         end
         local fpsText = menu.fpsLimit == "unlimited" and "Unlimited" or tostring(menu.fpsLimit)
-        love.graphics.printf("FPS Limit: "..fpsText, menu.settingsX+20, menu.settingsY+110, menu.settingsWidth-40, "left")
+        love.graphics.printf("FPS Limit: "..fpsText, settingsX+20, settingsY+110, SETTINGS_WIDTH-40, "left")
         love.graphics.setColor(0.3,0.3,0.3)
         love.graphics.rectangle("fill", fpsX, fpsY, fpsW, fpsH)
         local fpsBar = menu.fpsLimit == "unlimited" and fpsW or fpsW*(menu.fpsLimit/240)
         love.graphics.setColor(0.1,0.1,0.8)
         love.graphics.rectangle("fill", fpsX, fpsY, fpsBar, fpsH)
 
-        -- 3. Przycisk Ustawienia klawiszy
-        local keySettingsX, keySettingsY, keySettingsW, keySettingsH = menu.settingsX+20, menu.settingsY+170, menu.settingsWidth-40, 20
+        local keySettingsX, keySettingsY, keySettingsW, keySettingsH = settingsX+20, settingsY+170, SETTINGS_WIDTH-40, 20
         if menu.settingsSelected == 3 then
             love.graphics.setColor(0.9, 0.5, 0.1, 1)
             love.graphics.rectangle("line", keySettingsX-5, keySettingsY-5, keySettingsW+10, keySettingsH+10)
@@ -169,17 +228,13 @@ function menu.draw()
         love.graphics.printf("Key Bindings", keySettingsX, keySettingsY+5, keySettingsW, "center")
 
         love.graphics.setColor(1,1,1)
-        love.graphics.printf("Arrow Keys / WASD: Navigate, Left/Right: Adjust, Enter: Select, Esc: Back", menu.settingsX+20, menu.settingsY+210, menu.settingsWidth-40, "center")
+        love.graphics.printf("Arrow Keys / WASD: Navigate, Left/Right: Adjust, Enter: Select, Esc: Back", settingsX+20, settingsY+210, SETTINGS_WIDTH-40, "center")
         return
     end
 
-    -- Jeśli aktywny input imienia
-    if menu.nameInputActive then
-        love.graphics.printf("Enter your name: " .. menu.playerNameInput, 0, screenHeight / 2 - 20, screenWidth, "center")
-        return
-    end
-
-    -- Rysowanie przycisków
+    -- Rysowanie przycisków (OK)
+    -- Ustaw smallFont przed rysowaniem przycisków, jeśli jesteśmy w menu głównym
+    love.graphics.setFont(smallFont)
     local startY = screenHeight / 2 - (#menu.buttons * (menu.buttonHeight + menu.buttonSpacing)) / 2
     for i, button in ipairs(menu.buttons) do
         local x = screenWidth / 2 - menu.buttonWidth / 2
@@ -199,21 +254,26 @@ function menu.draw()
 end
 
 -- Obsługa klawiatury
-function menu:keypressed(key)
+function menu:keypressed(key, Game) 
     local mappedKey = MapKey and MapKey(key) or key
+    
+    -- Obliczamy dynamiczne X i Y (tylko do logiki dotyku/myszy, ale zostawiamy)
+    local screenWidth = love.graphics.getWidth()
+    local screenHeight = love.graphics.getHeight()
+    local settingsX = screenWidth / 2 - SETTINGS_WIDTH / 2
+    local settingsY = screenHeight / 2 - SETTINGS_HEIGHT / 2
 
+
+    -- Blokowanie klawiatury dla edycji klawiszy / Ustawień (OK)
     if menu.settingsOpen then
+        -- ... (Logika ustawień keypressed bez zmian)
         if menu.keySettingOpen then
             if menu.editingKey then
                 if key ~= "escape" then
                     local isKeyTaken = false
                     for k, val in pairs(menu.keyBindings) do
-                        if val == key then
-                            isKeyTaken = true
-                            break
-                        end
+                        if val == key then isKeyTaken = true; break end
                     end
-
                     if not isKeyTaken then
                         menu.keyBindings[menu.editingKey] = key
                         print("New key for "..menu.editingKey.." set to: "..key)
@@ -226,7 +286,6 @@ function menu:keypressed(key)
                 end
             else
                 local maxBindings = #GetSortedKeyNames()
-
                 if mappedKey == "up" or key == "up" or mappedKey == "w" or key == "w" then
                     menu.keyBindingsSelected = math.max(1, menu.keyBindingsSelected - 1)
                 elseif mappedKey == "down" or key == "down" or mappedKey == "s" or key == "s" then
@@ -237,13 +296,14 @@ function menu:keypressed(key)
                     print("Editing key: "..menu.editingKey)
                 elseif key == "escape" then
                     menu.keySettingOpen = false
+                    menu.settingsSelected = 3 -- Powrót do Key Bindings w głównym panelu
                     menu.keyBindingsSelected = 1
                 end
             end
             return
         end
 
-        -- === STANDARDOWE USTAWIENIA: Nawigacja w Options ===
+        -- Standardowe ustawienia
         if mappedKey == "up" or key == "up" or mappedKey == "w" or key == "w" then
             menu.settingsSelected = math.max(1, menu.settingsSelected - 1)
         elseif mappedKey == "down" or key == "down" or mappedKey == "s" or key == "s" then
@@ -252,7 +312,6 @@ function menu:keypressed(key)
             menu.settingsOpen = false
         end
 
-        -- === STANDARDOWE USTAWIENIA: Zmiana wartości (Left/Right) lub Wybór (Enter/Space) ===
         if menu.settingsSelected == 1 then -- Głośność
             if mappedKey == "left" or key == "left" or mappedKey == "a" or key == "a" then
                 menu.volume = math.max(0, menu.volume - 0.05)
@@ -284,21 +343,27 @@ function menu:keypressed(key)
         return
     end
 
-    if menu.nameInputActive then
+    -- === Obsługa wprowadzania imienia ===
+    if Game.state == "nick_input" then
         if key == "backspace" then
             local byteoffset = utf8.offset(menu.playerNameInput, -1)
             if byteoffset then
                 menu.playerNameInput = string.sub(menu.playerNameInput, 1, byteoffset - 1)
             end
         elseif key == "return" or key == "kpenter" then
-            if menu.playerNameInput ~= "" then
-                playerName = menu.playerNameInput 
-            else
-                playerName = "blank"
+            local enteredName = menu.playerNameInput
+            if enteredName == "" then enteredName = "Player" end 
+            
+            if Game.player then
+                Game.player.name = enteredName
             end
-            menu.nameInputActive = false
-            menu.nameEntered = true
-            return "start"
+            
+            menu.gameStarted = true
+            menu.playerNameInput = "" 
+            menu:updateButtons(Game) 
+            
+            menu:resumeGame(Game) -- ZMIANA: Używamy nowej funkcji (gdzie czcionka jest resetowana)
+            return
         end
         return
     end
@@ -312,32 +377,65 @@ function menu:keypressed(key)
         if menu.selectedButton > #menu.buttons then menu.selectedButton = 1 end
     elseif key == "return" or key == "space" or key == "kpenter" then 
         local btn = menu.buttons[menu.selectedButton]
-        if btn.action == "start" and not menu.nameEntered then
-            menu.nameInputActive = true
+        
+        if btn.action == "start" then
+            Game.state = "nick_input" 
+            love.keyboard.setTextInput(true) 
+            return
+        elseif btn.action == "continue" then
+            menu:resumeGame(Game) -- ZMIANA: Używamy nowej funkcji
             return
         elseif btn.action == "options" then
             menu.settingsOpen = true
             menu.settingsSelected = 1
             return
-        else
+        else 
             return menu:selectButton()
         end
     end
 end
 
--- Obsługa myszy
-function menu:mousepressed(x, y, button)
+-- Obsługa myszy / dotyku
+function menu:mousepressed(x, y, button, Game) 
     if button == 1 then
-        if menu.settingsOpen then
-            if menu.keySettingOpen then
-                local keyY = menu.settingsY + 70
-                local w = menu.settingsWidth - 40
-                local h = 20
-                local keyX = menu.settingsX + 20 + w/2 + 20
+        local screenWidth = love.graphics.getWidth()
+        local screenHeight = love.graphics.getHeight()
+        -- Obliczamy dynamiczne X i Y
+        local settingsX = screenWidth / 2 - SETTINGS_WIDTH / 2
+        local settingsY = screenHeight / 2 - SETTINGS_HEIGHT / 2
 
+        -- === PRIORYTET 1: Logika wprowadzania nazwy ZALEŻNA OD STANU GRY ===
+        if Game.state == "nick_input" then
+            local inputX = screenWidth / 2 - 200
+            local inputY = screenHeight / 2 - 30
+            local inputW = 400
+            local inputH = 60
+            
+            -- Jeśli kliknięto wewnątrz pola input, nic nie robimy
+            if x >= inputX and x <= inputX + inputW and y >= inputY and y <= inputY + inputH then
+                -- Może tu być kod, który aktywuje pole, ale love.keyboard.setTextInput(true) to robi
+                return 
+            end
+            
+            -- Jeśli kliknięto poza polem, wychodzimy z trybu wprowadzania nicka
+            love.keyboard.setTextInput(false)
+            menu:updateButtons(Game) 
+            Game.state = "menu" 
+            return
+        end
+
+        -- === PRIORYTET 2: Logika ustawień (OK) ===
+        if menu.settingsOpen then
+            -- ... (Logika klikania w ustawienia bez zmian)
+            if menu.keySettingOpen then
+                local keyY = settingsY + 70
+                local w = SETTINGS_WIDTH - 40
+                local h = 20
+                local keyX = settingsX + SETTINGS_WIDTH * 0.7 - 30 -- Użycie dynamicznego X z rysowania
                 keyNamesSorted = GetSortedKeyNames()
 
                 for i, name in ipairs(keyNamesSorted) do
+                    -- Sprawdzenie kliknięcia na przycisk z klawiszem
                     if x >= keyX and x <= keyX + 60 and y >= keyY and y <= keyY + h then
                         menu.keyBindingsSelected = i
                         menu.editingKey = name
@@ -348,10 +446,10 @@ function menu:mousepressed(x, y, button)
                 return
             end
 
-            -- Klik na przycisk "Key Bindings"
-            local keySettingsX = menu.settingsX+20
-            local keySettingsY = menu.settingsY+170
-            local keySettingsW = menu.settingsWidth-40
+            local keySettingsX = settingsX+20
+            local keySettingsY = settingsY+170
+            local keySettingsW = SETTINGS_WIDTH-40
+            -- Kliknięcie na przycisk Key Bindings
             if x >= keySettingsX and x <= keySettingsX + keySettingsW and y >= keySettingsY and y <= keySettingsY + 20 then
                 menu.settingsSelected = 3
                 menu.keySettingOpen = true
@@ -359,11 +457,11 @@ function menu:mousepressed(x, y, button)
                 return
             end
 
-            -- Klik na suwak głośności
-            local volX = menu.settingsX + 20
-            local volY = menu.settingsY + 70
-            local volW = menu.settingsWidth-40
+            local volX = settingsX + 20
+            local volY = settingsY + 70
+            local volW = SETTINGS_WIDTH-40
             local volH = 15
+            -- Kliknięcie na suwak głośności
             if x >= volX and x <= volX + volW and y >= volY and y <= volY + volH then
                 menu.volume = math.max(0, math.min(1, (x - volX)/volW))
                 love.audio.setVolume(menu.volume)
@@ -371,60 +469,75 @@ function menu:mousepressed(x, y, button)
                 return
             end
 
-            -- Klik na suwak FPS
-            local fpsX = menu.settingsX + 20
-            local fpsY = menu.settingsY + 130
-            local fpsW = menu.settingsWidth-40
+            local fpsX = settingsX + 20
+            local fpsY = settingsY + 130
+            local fpsW = SETTINGS_WIDTH-40
             local fpsH = 15
+            -- Kliknięcie na suwak FPS
             if x >= fpsX and x <= fpsX + fpsW and y >= fpsY and y <= fpsY + fpsH then
                 local pos = (x - fpsX)/fpsW
                 if pos > 0.98 then
                     menu.fpsLimit = "unlimited"
                 else
+                    -- Zaokrąglamy do najbliższej wielokrotności 5
                     menu.fpsLimit = math.floor(pos*240/5)*5
                 end
                 menu.settingsSelected = 2
                 return
             end
             
+            -- Jeśli kliknięto poza panelem ustawień, zamykamy go
+            local settingsBoundaryX = settingsX
+            local settingsBoundaryY = settingsY
+            local settingsBoundaryW = SETTINGS_WIDTH
+            local settingsBoundaryH = SETTINGS_HEIGHT
+            if not (x >= settingsBoundaryX and x <= settingsBoundaryX + settingsBoundaryW and y >= settingsBoundaryY and y <= settingsBoundaryY + settingsBoundaryH) then
+                menu.settingsOpen = false
+                return 
+            end
             return
         end
 
-        -- Normalne przyciski
-        local screenWidth = love.graphics.getWidth()
-        local screenHeight = love.graphics.getHeight()
-        local startY = screenHeight / 2 - (#menu.buttons * (menu.buttonHeight + menu.buttonSpacing)) / 2
+        -- === PRIORYTET 3: Logika menu głównego ===
+        if Game.state == "menu" then 
+            local startY = screenHeight / 2 - (#menu.buttons * (menu.buttonHeight + menu.buttonSpacing)) / 2
 
-        for i, btn in ipairs(menu.buttons) do
-            local bx = screenWidth / 2 - menu.buttonWidth / 2
-            local by = startY + (i - 1) * (menu.buttonHeight + menu.buttonSpacing)
+            for i, btn in ipairs(menu.buttons) do
+                local bx = screenWidth / 2 - menu.buttonWidth / 2
+                local by = startY + (i - 1) * (menu.buttonHeight + menu.buttonSpacing)
 
-            if x >= bx and x <= bx + menu.buttonWidth and y >= by and y <= by + menu.buttonHeight then
-                menu.selectedButton = i
-                if btn.action == "start" and not menu.nameEntered then
-                    menu.nameInputActive = true
-                    return
-                elseif btn.action == "options" then
-                    menu.settingsOpen = true
-                    menu.settingsSelected = 1
-                    return
-                else
-                    return menu:selectButton()
+                if x >= bx and x <= bx + menu.buttonWidth and y >= by and y <= by + menu.buttonHeight then
+                    menu.selectedButton = i
+                    
+                    if btn.action == "start" then
+                        Game.state = "nick_input" 
+                        love.keyboard.setTextInput(true) 
+                        return
+                    elseif btn.action == "continue" then
+                        menu:resumeGame(Game) -- ZMIANA: Używamy nowej funkcji
+                        return
+                    elseif btn.action == "options" then
+                        menu.settingsOpen = true
+                        menu.settingsSelected = 1
+                        return
+                    else
+                        return menu:selectButton()
+                    end
                 end
             end
         end
     end
 end
 
--- Akcja po wybraniu przycisku
+-- Akcja po wybraniu przycisku (OK)
 function menu:selectButton()
     local action = menu.buttons[menu.selectedButton].action
     return action
 end
 
 -- Obsługa wpisywania liter
-function menu:textinput(t)
-    if menu.nameInputActive then
+function menu:textinput(t, Game) 
+    if Game.state == "nick_input" and utf8.len(menu.playerNameInput) < PLAYER_NAME_MAX_LENGTH then
         menu.playerNameInput = menu.playerNameInput .. t
     end
 end

@@ -11,7 +11,7 @@ function EnemiesLogic:init(world)
     self.damageTexts = {}
     
     -- Ładowanie rendererów
-    enemyRenderers.SLIME_RENDER = require("combat.SlimeRenderer")
+    enemyRenderers.SLIME_RENDER = require("combat.slimerenderer")
 
 	-- Inicjalizacja rendererów
 		for _, renderer in pairs(enemyRenderers) do
