@@ -1,31 +1,37 @@
 local Leveling = {}
-local player = nil -- Przekazana referencja do obiektu gracza
-local ENEMY_XP_VALUE = 2 -- Slime daje 2 XP (dwa kille na pierwszy level)
+local math = math or {}
+local love = love or {}
+local player = nil 
+
+-- ============================================================
+-- KONFIGURACJA GRY I PROGRESJI
+-- ============================================================
+local ENEMY_XP_VALUE = 2 
+local BASE_WINDOW_WIDTH = 300 -- Zmniejszony rozmiar
+local BASE_WINDOW_HEIGHT = 350 -- Zmniejszony rozmiar
+local BASE_SCREEN_W = 800 -- Wartość referencyjna dla skalowania (np. 800px)
 
 -- -- -- STAN POZIOMOWANIA -- -- --
 Leveling.currentLevel = 1
 Leveling.currentXP = 0
-Leveling.XPToNextLevel = 2 -- XP wymagane na level 2 (2^1 = 2)
+Leveling.XPToNextLevel = 2 
 Leveling.levelCap = 100
-Leveling.levelUpAvailable = false -- Flaga, która aktywuje okno ulepszeń
-Leveling.attributePoints = 0 -- Punkty do wydania
-Leveling.selectedAttribute = 1 -- Zmienna do nawigacji klawiaturą
+Leveling.levelUpAvailable = false 
+Leveling.attributePoints = 0 
+Leveling.selectedAttribute = 1 
 
--- -- -- Okno ulepszeń -- -- --
+-- -- -- Okno ulepszeń (Dynamiczne) -- -- --
 Leveling.window = {
-    width = 500, -- Zgodnie z Twoją prośbą
-    height = 500 -- Zgodnie z Twoją prośbą
+    width = BASE_WINDOW_WIDTH,
+    height = BASE_WINDOW_HEIGHT,
+    scale = 1.0 -- Zmienna do przechowywania skalowania
 }
 
 Leveling.attributes = {
-    "HP",
-    "STR",
-    "MANA",
-    "STAMINA",
-    "SPEED"
+    "HP", "STR", "MANA", "STAMINA", "SPEED"
 }
 
--- Definicja wzmocnień na 1 punkt (wartość 1 = +1% do bazowej statystyki)
+-- Definicja wzmocnień na 1 punkt
 Leveling.upgradeStats = {
     HP = { baseKey = "baseMaxHp", value = 5, name = "Max HP (+5% Bazowej)" },
     STR = { baseKey = "baseDamage", value = 5, name = "Damage (+5% Bazowej)" },
@@ -40,47 +46,37 @@ Leveling.upgradeStats = {
 -- Oblicza XP potrzebne na następny poziom
 local function calculateXP(level)
     if level >= Leveling.levelCap then return math.huge end
-    -- Binarna progresja: 2^(Level)
     return 2 ^ level
 end
 
 -- Aktualizuje statystyki gracza (poziomy % i płaskie) po wydaniu punktu.
--- Natychmiastowo uzupełnia HP/Mana, jeśli wzrasta.
 function Leveling:recalculateStats(attributeKey)
     local upgrade = Leveling.upgradeStats[attributeKey]
     if not upgrade then return end
     
-    local baseKey = upgrade.baseKey
-    local pointsKey = baseKey .. "Points"
+    local pointsKey = upgrade.baseKey .. "Points"
     local points = player[pointsKey] or 0
+    local baseKey = upgrade.baseKey
 
+    -- 1. Obliczanie statystyk
+    local base = player[baseKey]
+    local newValue = base * (1 + (points / 100))
+
+    -- 2. Aktualizacja i uzupełnianie (tylko dla HP i MANA)
     if attributeKey == "HP" then
-        local base = player.baseMaxHp
-        local newMaxHp = base * (1 + (points / 100))
-        local diff = newMaxHp - (player.maxHp or base) 
-        
-        player.maxHp = newMaxHp
-        player.hp = (player.hp or player.maxHp) + diff -- Uzupełnienie obecnego HP
-        
+        local diff = newValue - (player.maxHp or base) 
+        player.maxHp = newValue
+        player.hp = (player.hp or player.maxHp) + diff 
     elseif attributeKey == "MANA" then
-        local base = player.baseMaxMana
-        local newMaxMana = base * (1 + (points / 100))
-        local diff = newMaxMana - (player.maxMana or base) 
-        
-        player.maxMana = newMaxMana
-        player.mana = (player.mana or player.maxMana) + diff -- Uzupełnienie obecnej Many
-
+        local diff = newValue - (player.maxMana or base) 
+        player.maxMana = newValue
+        player.mana = (player.mana or player.maxMana) + diff 
     elseif attributeKey == "STR" then
-        local base = player.baseDamage
-        player.damage = base * (1 + (points / 100))
-        
+        player.damage = newValue
     elseif attributeKey == "STAMINA" then
-        local base = player.baseMaxStamina
-        player.maxStamina = base * (1 + (points / 100))
-        
+        player.maxStamina = newValue
     elseif attributeKey == "SPEED" then
-        local base = player.baseSpeed
-        player.speed = base * (1 + (points / 100))
+        player.speed = newValue
     end
 end
 
@@ -88,61 +84,64 @@ end
 -- Wymaga, aby player został przekazany z main.lua
 function Leveling:init(playerRef)
     player = playerRef
-    -- Jeśli obiekt gracza ma już zdefiniowane pola bazowe, używamy ich
+    
+    -- Inicjalizacja pól bazowych (wartości domyślne)
     player.baseMaxHp = player.baseMaxHp or 100
     player.baseMaxMana = player.baseMaxMana or 100
     player.baseSpeed = player.baseSpeed or 300
-    player.baseDamage = player.baseDamage or 5 -- Zakładając, że player.damage jest oparte na baseDamage
+    player.baseDamage = player.baseDamage or 5 
     player.baseMaxStamina = player.baseMaxStamina or 100
     
     -- Inicjalizacja pól do śledzenia punktów atrybutów
-    player.baseMaxHpPoints = player.baseMaxHpPoints or 0
-    player.baseMaxManaPoints = player.baseMaxManaPoints or 0
-    player.baseDamagePoints = player.baseDamagePoints or 0
-    player.baseMaxStaminaPoints = player.baseMaxStaminaPoints or 0
-    player.baseSpeedPoints = player.baseSpeedPoints or 0
+    local function initPoints(baseKey)
+        player[baseKey .. "Points"] = player[baseKey .. "Points"] or 0
+    end
+    initPoints("baseMaxHp"); initPoints("baseMaxMana"); initPoints("baseDamage")
+    initPoints("baseMaxStamina"); initPoints("baseSpeed")
 
-    -- Inicjalizacja aktualnych statystyk (pola, które są używane przez bars.lua/walkę)
+    -- Inicjalizacja aktualnych statystyk
     player.maxHp = player.maxHp or player.baseMaxHp
     player.hp = player.hp or player.maxHp
     player.maxMana = player.maxMana or player.baseMaxMana
-    player.mana = player.mana or player.maxMana
+    player.mana = player.mana or player.baseMaxMana
     player.damage = player.damage or player.baseDamage
     player.speed = player.speed or player.baseSpeed
     player.maxStamina = player.maxStamina or player.baseMaxStamina
     
-    -- Zapewnia, że gracz ma pola wymagane przez ten moduł
     player.currentLevel = player.currentLevel or 1
     player.currentXP = player.currentXP or 0
+    
+    -- Obliczenie skalowania przy starcie
+    self:recalculateWindowScale()
 end
+
+-- Oblicza skalę okna na podstawie szerokości ekranu
+function Leveling:recalculateWindowScale()
+    local screenW = love.graphics.getWidth() or BASE_SCREEN_W
+    -- Skalowanie okna na podstawie proporcji ekranu do wartości bazowej (max 1.0)
+    local newScale = math.min(1.0, screenW / BASE_SCREEN_W)
+    Leveling.window.scale = newScale
+    Leveling.window.width = BASE_WINDOW_WIDTH * newScale
+    Leveling.window.height = BASE_WINDOW_HEIGHT * newScale
+end
+
 
 -- Funkcja dodająca XP (wywoływana po zabiciu wroga w enemieslogic.lua)
 function Leveling:addXP(enemyId)
     if Leveling.currentLevel >= Leveling.levelCap then return end
     
-    -- Na obecną chwilę, tylko Slime daje XP (wg. Twojej prośby)
-    -- Możesz tu dodać logiczne sprawdzenie enemyId
     local xpGained = ENEMY_XP_VALUE 
-    
     Leveling.currentXP = Leveling.currentXP + xpGained
     
-    -- Sprawdzenie, czy nastąpił awans
     while Leveling.currentXP >= Leveling.XPToNextLevel do
-        
         Leveling.currentLevel = Leveling.currentLevel + 1
         Leveling.attributePoints = Leveling.attributePoints + 1
-        
-        -- Przeniesienie nadmiarowego XP na następny poziom
         Leveling.currentXP = Leveling.currentXP - Leveling.XPToNextLevel
-        
-        -- Obliczenie nowego progu XP
         Leveling.XPToNextLevel = calculateXP(Leveling.currentLevel)
         
         -- Aktywacja okna ulepszeń
         Leveling.levelUpAvailable = true
-        Leveling.selectedAttribute = 1 -- Resetowanie wybranego atrybutu przy awansie
-        
-        -- Ustawienie flagi w obiekcie gracza, jeśli potrzebne (np. do zatrzymania ruchu)
+        Leveling.selectedAttribute = 1 
         player.isLevelingUp = true
         
         if Leveling.currentLevel >= Leveling.levelCap then break end
@@ -156,19 +155,14 @@ function Leveling:applyUpgrade(attributeKey)
     local upgrade = Leveling.upgradeStats[attributeKey]
     if not upgrade then return end
     
-    local baseKey = upgrade.baseKey
-    local pointsKey = baseKey .. "Points"
+    local pointsKey = upgrade.baseKey .. "Points"
 
     if player[pointsKey] ~= nil then
-        -- Zwiększenie punktów atrybutu (o 1, bo value=1% w Leveling.upgradeStats)
         player[pointsKey] = player[pointsKey] + upgrade.value
-        
-        -- Przeliczanie i zastosowanie zmian do statystyk gracza
         Leveling:recalculateStats(attributeKey)
 
         Leveling.attributePoints = Leveling.attributePoints - 1
         
-        -- Jeśli wykorzystano wszystkie punkty, zamykamy okno
         if Leveling.attributePoints == 0 then
             Leveling.levelUpAvailable = false
             player.isLevelingUp = false
@@ -180,7 +174,6 @@ end
 function Leveling:keypressed(key)
     if not Leveling.levelUpAvailable then return end
 
-    -- Użycie MapKey, jeśli jest dostępna globalnie (z main.lua)
     local mappedKey = _G.MapKey and _G.MapKey(key) or key
     local maxAttributes = #Leveling.attributes
 
@@ -188,34 +181,40 @@ function Leveling:keypressed(key)
         Leveling.selectedAttribute = math.max(1, Leveling.selectedAttribute - 1)
     elseif mappedKey == "down" or key == "down" or mappedKey == "s" or key == "s" then
         Leveling.selectedAttribute = math.min(maxAttributes, Leveling.selectedAttribute + 1)
-    elseif key == "return" or key == "space" or key == "kpenter" then 
+    elseif key == "return" or key == "space" or key == "kpenter" or key == "e" then 
         local attributeKey = Leveling.attributes[Leveling.selectedAttribute]
         Leveling:applyUpgrade(attributeKey)
     end
 end
 
 
--- Obsługa kliknięcia myszą na przyciski ulepszeń
+-- Obsługa kliknięcia/dotyku myszą na przyciski ulepszeń
 function Leveling:mousepressed(x, y, button)
     if not Leveling.levelUpAvailable or button ~= 1 then return end
     
+    -- Ponowne przeliczenie skali na wypadek zmiany rozmiaru okna/ekranu
+    self:recalculateWindowScale() 
+
     local win = Leveling.window
-    local padding = 40
-    local buttonH = 50
+    local scale = win.scale
     
-    -- POPRAWNE OBLICZANIE POZYCJI X I Y
+    -- Wartości bazowe skalowane
+    local padding = 40 * scale
+    local buttonH = 50 * scale
+    local margin = 10 * scale
+    local sideMargin = 20 * scale
+
     local screenWidth = love.graphics.getWidth()
-    local winX = (screenWidth / 2) - (win.width / 2) -- Wyśrodkowanie poziome
-    local winY = 50 -- Stała pozycja Y
+    local winX = (screenWidth / 2) - (win.width / 2) 
+    local winY = 50 * scale -- Stała pozycja Y (skalowana)
     
-    -- Przechodzimy przez przyciski
     for i, attr in ipairs(Leveling.attributes) do
-        local btnY = winY + padding + (i * (buttonH + 10)) 
-        local btnX = winX + 20 
-        local btnW = win.width - 40
+        local btnY = winY + padding + (i * (buttonH + margin)) 
+        local btnX = winX + sideMargin
+        local btnW = win.width - (sideMargin * 2)
         
+        -- Dotyk w przycisk
         if x >= btnX and x <= btnX + btnW and y >= btnY and y <= btnY + buttonH then
-            -- Ustawienie wybranego atrybutu myszką
             Leveling.selectedAttribute = i
             Leveling:applyUpgrade(attr)
             return true
@@ -227,19 +226,26 @@ end
 -- RYSOWANIE
 
 function Leveling:draw()
+    -- Musimy przeliczyć skalę przed rysowaniem, na wypadek resize okna
+    self:recalculateWindowScale()
+    
     -- Rysuje pasek XP (zintegruj to w bars.lua później)
     self:drawXPBar()
     
     if not Leveling.levelUpAvailable then return end
     
     local win = Leveling.window
-    local padding = 40
-    local buttonH = 50
+    local scale = win.scale
 
-    -- POPRAWNE OBLICZANIE POZYCJI X I Y
+    -- Wartości bazowe skalowane
+    local padding = 40 * scale
+    local buttonH = 50 * scale
+    local margin = 10 * scale
+    local sideMargin = 20 * scale
+
     local screenWidth = love.graphics.getWidth()
-    local winX = (screenWidth / 2) - (win.width / 2) -- Wyśrodkowanie poziome
-    local winY = 50 -- Stała pozycja Y
+    local winX = (screenWidth / 2) - (win.width / 2) 
+    local winY = 50 * scale 
     
     -- Przyciemnienie ekranu
     love.graphics.setColor(0, 0, 0, 0.7)
@@ -247,70 +253,79 @@ function Leveling:draw()
     
     -- Tło okna
     love.graphics.setColor(0.1, 0.1, 0.2, 1)
-    love.graphics.rectangle("fill", winX, winY, win.width, win.height, 10) 
+    love.graphics.rectangle("fill", winX, winY, win.width, win.height, 10 * scale) 
     
     -- Ramka
     love.graphics.setColor(0.8, 0.8, 1, 1)
-    love.graphics.rectangle("line", winX, winY, win.width, win.height, 10) 
+    love.graphics.rectangle("line", winX, winY, win.width, win.height, 10 * scale) 
     
     -- Tytuł
     love.graphics.setColor(1, 1, 1)
     local title = "LEVEL UP! (" .. Leveling.attributePoints .. " points)"
-    love.graphics.printf(title, winX, winY + 10, win.width, "center") 
+    
+    -- Użycie push/pop i skalowanie fontu, aby tekst nie był za mały/duży
+    love.graphics.push()
+    love.graphics.scale(scale, scale)
+    love.graphics.printf(title, winX/scale, (winY + 10)/scale, win.width/scale, "center") 
+    love.graphics.pop()
     
     -- Przyciski ulepszeń
     for i, attr in ipairs(Leveling.attributes) do
         local upgrade = Leveling.upgradeStats[attr]
-        local btnY = winY + padding + (i * (buttonH + 10)) 
-        local btnX = winX + 20 
-        local btnW = win.width - 40
+        local btnY = winY + padding + (i * (buttonH + margin)) 
+        local btnX = winX + sideMargin 
+        local btnW = win.width - (sideMargin * 2)
         
         -- Podświetlenie wybranego przycisku
         if i == Leveling.selectedAttribute then
             love.graphics.setColor(0.9, 0.5, 0.1, 1)
-            love.graphics.rectangle("line", btnX - 5, btnY - 5, btnW + 10, buttonH + 10, 5)
+            love.graphics.setLineWidth(3 * scale)
+            love.graphics.rectangle("line", btnX - (5 * scale), btnY - (5 * scale), btnW + (10 * scale), buttonH + (10 * scale), 5 * scale)
+            love.graphics.setLineWidth(1)
         end
         
         -- Tło przycisku
         love.graphics.setColor(0.3, 0.3, 0.5)
-        love.graphics.rectangle("fill", btnX, btnY, btnW, buttonH, 5)
+        love.graphics.rectangle("fill", btnX, btnY, btnW, buttonH, 5 * scale)
         
         -- Ramka przycisku
         love.graphics.setColor(0.8, 0.8, 1)
-        love.graphics.rectangle("line", btnX, btnY, btnW, buttonH, 5)
+        love.graphics.rectangle("line", btnX, btnY, btnW, buttonH, 5 * scale)
         
-        -- Tekst przycisku
-        love.graphics.setColor(1, 1, 1)
+        -- Rysowanie tekstu z uwzględnieniem skalowania
+        love.graphics.push()
+        love.graphics.scale(scale, scale)
+
+        -- Tekst atrybutu
         local statText = string.format("%s", upgrade.name)
-        love.graphics.printf(statText, btnX, btnY + 10, btnW, "center")
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf(statText, btnX/scale, (btnY + 10)/scale, btnW/scale, "center")
         
         -- Obecna wartość
         local currentVal
-        if attr == "HP" then
-            currentVal = player.maxHp
-        elseif attr == "STR" then
-            currentVal = player.damage
-        elseif attr == "MANA" then
-            currentVal = player.maxMana
-        elseif attr == "STAMINA" then
-            currentVal = player.maxStamina
-        elseif attr == "SPEED" then
-            currentVal = player.speed
-        end
+        if attr == "HP" then currentVal = player.maxHp
+        elseif attr == "STR" then currentVal = player.damage
+        elseif attr == "MANA" then currentVal = player.maxMana
+        elseif attr == "STAMINA" then currentVal = player.maxStamina
+        elseif attr == "SPEED" then currentVal = player.speed end
         
         local valText = string.format("Current: %d", math.floor(currentVal))
-        love.graphics.printf(valText, btnX, btnY + 25, btnW, "center")
+        love.graphics.printf(valText, btnX/scale, (btnY + 25)/scale, btnW/scale, "center")
+
+        love.graphics.pop()
     end
     
-    love.graphics.setColor(1, 1, 1) -- Reset koloru
+    love.graphics.setColor(1, 1, 1)
 end
 
 -- Rysuje pasek XP
 function Leveling:drawXPBar()
-    local barWidth = 200
-    local barHeight = 15
-    local uiX = 10
-    local uiY = 10 + 20 + 5 + 20 + 5 -- Pod Mana Bar
+    -- Wartości niezależne od głównego skalowania okna, ale oparte na stałych UI
+    local uiScale = 1.0 
+    local barWidth = 200 * uiScale
+    local barHeight = 15 * uiScale
+    local uiX = 10 * uiScale
+    local uiY = (10 + 20 + 5 + 20 + 5) * uiScale 
     
     local xpPercent = math.max(0, math.min(Leveling.currentXP / Leveling.XPToNextLevel, 1))
 
