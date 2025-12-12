@@ -354,11 +354,11 @@ function Leveling:drawXPBar()
 	local xpPercent = math.max(0, math.min(Leveling.currentXP / Leveling.XPToNextLevel, 1))
 
 	-- Tło
-	love.graphics.setColor(0.1, 0.1, 0.3)
+	love.graphics.setColor(0.2, 0.2, 0.2)
 	love.graphics.rectangle("fill", uiX, uiY, barWidth, barHeight, 3, 3)
 
 	-- Wypełnienie XP
-	love.graphics.setColor(0.2, 0.8, 0.8)
+	love.graphics.setColor(0.2, 0.8, 0.4)
 	love.graphics.rectangle("fill", uiX, uiY, xpPercent * barWidth, barHeight, 3, 3)
 
 	-- Obramowanie

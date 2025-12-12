@@ -8,36 +8,37 @@ local math = math or {}
 
 local smallFont
 local WARRIOR_IMAGE_PATH = "sprites/warrior.png"
+local INVENTORY_BG_PATH = "sprites/inventorybg.png"
 
 -- 1. GLÓWNA SIATKA (PLECAK)
-local SLOT_SIZE = 64          -- Wielkość jednego kwadratu w plecaku (px)
-local PADDING = 10            -- Odstęp między kwadratami w plecaku (px)
-local COLS = 6                -- Liczba kolumn w plecaku
-local ROWS = 4                -- Liczba wierszy w plecaku
-local SPACING_BETWEEN_PANELS = 50 -- Odstęp między panelem postaci a plecakiem
+local SLOT_SIZE = 64-- Wielkość jednego kwadratu w plecaku (px)
+local PADDING = 10-- Odstęp między kwadratami w plecaku (px)
+local COLS = 6-- Liczba kolumn w plecaku
+local ROWS = 4-- Liczba wierszy w plecaku
+local SPACING_BETWEEN_PANELS = 50-- Odstęp między panelem postaci a plecakiem
 
 -- 2. PANEL WYPOSAŻENIA (POSTAĆ)
-local EQ_PANEL_W = 320        -- Bazowa szerokość panelu z postacią
-local EQ_PANEL_H_BASE = 320  -- **BAZOWA WYSOKOŚĆ PANELU POSTACI (px). Ustaw tę wartość, by kontrolować wysokość. Będzie co najmniej równa minimalnej wysokości slotów.**
-local EQ_SLOT_SIZE = 64       -- Wielkość slotów na wyposażenie (np. hełm, broń)
-local EQ_PAD = 16            -- Odstęp pionowy między slotami w panelu EQ
+local EQ_PANEL_W = 320-- Bazowa szerokość panelu z postacią
+local EQ_PANEL_H_BASE = 320--BAZOWA WYSOKOŚĆ PANELU POSTACI (px). Ustaw tę wartość, by kontrolować wysokość. Będzie co najmniej równa minimalnej wysokości slotów.**
+local EQ_SLOT_SIZE = 64-- Wielkość slotów na wyposażenie (np. hełm, broń)
+local EQ_PAD = 16-- Odstęp pionowy między slotami w panelu EQ
 
 -- Pozycje elementów wewnątrz panelu EQ (współczynniki 0.0 - 1.0)
-local EQ_SLOTS_LEFT_X_RATIO = 0.12   -- Pozioma pozycja lewych slotów (12% szerokości panelu)
-local EQ_SLOTS_RIGHT_X_RATIO = 0.88  -- Pozioma pozycja prawych slotów (88% szerokości panelu)
-local EQ_SLOTS_START_Y_OFFSET = 20   -- Odsunięcie pierwszego slotu od góry panelu (w pixelach bazowych)
+local EQ_SLOTS_LEFT_X_RATIO = 0.12-- Pozioma pozycja lewych slotów (12% szerokości panelu)
+local EQ_SLOTS_RIGHT_X_RATIO = 0.88-- Pozioma pozycja prawych slotów (88% szerokości panelu)
+local EQ_SLOTS_START_Y_OFFSET = 20-- Odsunięcie pierwszego slotu od góry panelu (w pixelach bazowych)
 
 -- Ustawienia obrazka Wojownika
-local WARRIOR_IMG_Y_POS_RATIO = 0.4  -- Pionowa pozycja środka obrazka (40% wysokości panelu)
-local WARRIOR_IMG_SCALE_RATIO = 0.6  -- Jak duży ma być obrazek względem szerokości panelu (60%)
+local WARRIOR_IMG_Y_POS_RATIO = 0.4-- Pionowa pozycja środka obrazka (40% wysokości panelu)
+local WARRIOR_IMG_SCALE_RATIO = 0.6-- Jak duży ma być obrazek względem szerokości panelu (60%)
 
 -- 3. PANEL OPISU (NA DOLE)
-local DESC_PANEL_H = 75       -- Wysokość panelu z opisem
-local DESC_PANEL_V_SPACING = 30 -- Odstęp pionowy panelu opisu od reszty
+local DESC_PANEL_H = 75-- Wysokość panelu z opisem
+local DESC_PANEL_V_SPACING = 30-- Odstęp pionowy panelu opisu od reszty
 
 -- 4. SKALOWANIE UI
-local MIN_UI_SCALE = 0.45     -- Minimalna wielkość UI
-local MAX_UI_SCALE = 1.2      -- Maksymalna wielkość UI
+local MIN_UI_SCALE = 0.45-- Minimalna wielkość UI
+local MAX_UI_SCALE = 1.2-- Maksymalna wielkość UI
 
 -- ============================================================
 -- INICJALIZACJA I POZYCJONOWANIE
@@ -94,6 +95,9 @@ function inventory:init()
 
 	-- Obrazek postaci
 	self.warriorImage = nil
+	-- ZMIANA 2: Nowa zmienna dla obrazka tła
+	self.inventoryBgImage = nil 
+
 	if love.image and love.graphics then
 		local ok, imgOrErr = pcall(function()
 			if love.filesystem and love.filesystem.getInfo and love.filesystem.getInfo(WARRIOR_IMAGE_PATH) then
@@ -104,6 +108,12 @@ function inventory:init()
 			end
 		end)
 		if ok then self.warriorImage = imgOrErr end
+		
+		-- ZMIANA 2: Ładowanie obrazka tła
+		local okBg, imgBgOrErr = pcall(function()
+			return love.graphics.newImage(INVENTORY_BG_PATH)
+		end)
+		if okBg then self.inventoryBgImage = imgBgOrErr end
 	end
 
 	-- Drag & Drop
@@ -171,7 +181,7 @@ function inventory:recalculatePosition()
 	
 	-- Wysokość Panelu EQ (używamy designEqH, która już jest zabezpieczona minimum i przeskalowana)
 	self.eqPanelHScaled = math.max(math.floor(designEqH * self.scale), 
-	                              mainGridH * 0.5) -- Upewniamy się, że nie jest za mała (dodatkowe zabezpieczenie)
+									mainGridH * 0.5) -- Upewniamy się, że nie jest za mała (dodatkowe zabezpieczenie)
 
 	local eqPanelH = self.eqPanelHScaled
 	
@@ -182,13 +192,19 @@ function inventory:recalculatePosition()
 
 	local centeredX = (screenW - totalContentW) / 2
 	local centeredY = (screenH - totalContentH) / 2
+	
+	-- ZMIANA 2: Dodanie pozycji i wymiarów dla całego bloku (tła)
+	self.bgX = math.floor(centeredX)
+	self.bgY = math.floor(centeredY)
+	self.bgW = totalContentW
+	self.bgH = totalContentH
 
 	-- Ustawianie pozycji Y dla Plecaka i Panelu EQ (środkowanie pionowe)
-	local mainPanelY = math.floor(centeredY)
+	local mainPanelY = self.bgY -- Używamy Y całego bloku
 	self.eqPanelY = mainPanelY + math.floor((totalMaxH - eqPanelH) / 2)
 	self.y = mainPanelY + math.floor((totalMaxH - mainGridH) / 2)
 
-	self.eqPanelX = math.floor(centeredX)
+	self.eqPanelX = self.bgX -- Używamy X całego bloku
 	self.mainPanelX = self.eqPanelX
 	
 	-- Siatka przedmiotów jest przesunięta w prawo względem panelu postaci
@@ -212,15 +228,15 @@ function inventory:recalculatePosition()
 	local pad = self.eqSlotSizeScaled + math.floor(EQ_PAD * self.scale)
 
 	self.slotPositions = {
-		weapon = {x = leftX,    y = startY + 0 * pad},
-		artifact1 = {x = leftX, y = startY + 1 * pad},
-		artifact2 = {x = leftX, y = startY + 2 * pad},
-		artifact3 = {x = leftX, y = startY + 3 * pad},
+		weapon = {x = leftX,y = startY + 0 * pad},
+		artifact1 = {x = leftX,y = startY + 1 * pad},
+		artifact2 = {x = leftX,y = startY + 2 * pad},
+		artifact3 = {x = leftX,y = startY + 3 * pad},
 		
-		helmet = {x = rightX,   y = startY + 0 * pad},
+		helmet = {x = rightX,y = startY + 0 * pad},
 		chestplate = {x = rightX,y = startY + 1 * pad},
-		leggins = {x = rightX, y = startY + 2 * pad},
-		boots = {x = rightX,   y = startY + 3 * pad}
+		leggins = {x = rightX,y = startY + 2 * pad},
+		boots = {x = rightX,y = startY + 3 * pad}
 	}
 
 	-- Aktualizacja czcionki
@@ -551,7 +567,17 @@ end
 function inventory:draw()
 	if not self.isOpen then return end
 
-	-- 1. Rysowanie plecaka
+	-- ZMIANA 3: Rysowanie obrazka tła (jako pierwsza warstwa)
+	if self.inventoryBgImage then
+		local img = self.inventoryBgImage
+		local scaleBgW = self.bgW / img:getWidth()
+		local scaleBgH = self.bgH / img:getHeight()
+
+		love.graphics.setColor(1, 1, 1) -- Upewnij się, że kolor jest biały (1,1,1)
+		love.graphics.draw(img, self.bgX, self.bgY, 0, scaleBgW, scaleBgH)
+	end
+
+	-- 1. Rysowanie plecaka (samych slotów)
 	for row = 1, self.rows do
 		for col = 1, self.cols do
 			local index = (row - 1) * self.cols + col
@@ -561,7 +587,7 @@ function inventory:draw()
 			local s = self.slotSizeScaled
 
 			love.graphics.setColor(0.2, 0.2, 0.2)
-			love.graphics.rectangle("fill", x, y, s, s, 5 * self.scale, 5 * self.scale)
+			love.graphics.rectangle("fill", x, y, s, s, 5 * self.scale, 5 * self.scale) -- Zachowujemy tło samego slotu
 
 			if self.selectionMode == "main" and row == self.selectedRow and col == self.selectedCol then
 				love.graphics.setColor(1, 1, 0)
@@ -602,10 +628,11 @@ function inventory:draw()
 	local panelWidth = self.descPanelW
 	local panelHeight = self.descPanelH
 
-	love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
-	love.graphics.rectangle("fill", panelX, panelY, panelWidth, panelHeight, 8 * self.scale, 8 * self.scale)
-	love.graphics.setColor(1, 1, 1)
-	love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight, 8 * self.scale, 8 * self.scale)
+	-- ZMIANA 4: USUNIĘTO RYSOWANIE SZAREGO TŁA/RAMKI (pokrywa to teraz inventorybg.png)
+	-- love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
+	-- love.graphics.rectangle("fill", panelX, panelY, panelWidth, panelHeight, 8 * self.scale, 8 * self.scale)
+	-- love.graphics.setColor(1, 1, 1)
+	-- love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight, 8 * self.scale, 8 * self.scale)
 
 	love.graphics.setFont(love.graphics.getFont())
 	if selectedItem and selectedItem.data then
@@ -624,10 +651,11 @@ function inventory:draw()
 	local eqPanelW = self.eqPanelWScaled
 	local eqPanelH = self.eqPanelHScaled
 
-	love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
-	love.graphics.rectangle("fill", eqPanelX, eqPanelY, eqPanelW, eqPanelH, 8 * self.scale, 8 * self.scale)
-	love.graphics.setColor(1, 1, 1)
-	love.graphics.rectangle("line", eqPanelX, eqPanelY, eqPanelW, eqPanelH, 8 * self.scale, 8 * self.scale)
+	-- ZMIANA 4: USUNIĘTO RYSOWANIE SZAREGO TŁA/RAMKI (pokrywa to teraz inventorybg.png)
+	-- love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
+	-- love.graphics.rectangle("fill", eqPanelX, eqPanelY, eqPanelW, eqPanelH, 8 * self.scale, 8 * self.scale)
+	-- love.graphics.setColor(1, 1, 1)
+	-- love.graphics.rectangle("line", eqPanelX, eqPanelY, eqPanelW, eqPanelH, 8 * self.scale, 8 * self.scale)
 
 	-- Rysowanie wojownika (używamy zmiennych konfiguracyjnych)
 	if self.warriorImage then
@@ -660,7 +688,7 @@ function inventory:draw()
 			local slotH = self.eqSlotSizeScaled
 
 			love.graphics.setColor(0.2, 0.2, 0.2)
-			love.graphics.rectangle("fill", slotX, slotY, slotW, slotH, 5 * self.scale, 5 * self.scale)
+			love.graphics.rectangle("fill", slotX, slotY, slotW, slotH, 5 * self.scale, 5 * self.scale) -- Zachowujemy tło samego slotu
 
 			love.graphics.setColor(1, 1, 1)
 			love.graphics.printf(name:upper(), slotX - math.floor(20 * self.scale), slotY - math.floor(12 * self.scale), math.floor(100 * self.scale), "center", 0, 1, 1)
