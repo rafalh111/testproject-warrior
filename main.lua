@@ -38,8 +38,8 @@ local arcade = require("minigry.arcade")
 local snake = require("minigry.snake")
 local dungeon = require("maps.dungeon")
 
-bullets = require("combat.bullets") 	_G.bullets = bullets
-enemies = require("combat.enemieslogic") 	_G.enemies = enemies
+bullets = require("combat.bullets")		_G.bullets = bullets
+enemies = require("combat.enemieslogic")	_G.enemies = enemies
 
 local EnemyDefinitions = require("combat.enemieslist")
 
@@ -60,14 +60,9 @@ local bars = require("playerstuff.bars")
 local pickup = require("playerstuff.pickupitemy")
 local menu = require("menu")
 
--- === NOWO DODANY MODUŁ PRZYCISKÓW HUD ===
-local buttonsUI = require("buttons") 
-_G.buttonsUI = buttonsUI -- Globalna referencja dla kontrolera
-------------------------------------------
-
 -- Ustawienie domyślnej skali (dla diagnostyki, zakładając, że używasz 1920 jako bazy)
 _G.scale = 1.0 
-_G.buttonsUI = buttonsUI -- Upewnienie się, że jest globalnie dostępne
+----------------------------------------------------------------------------------
 
 
 function love.load()
@@ -87,14 +82,13 @@ function love.load()
 	love.graphics.setDefaultFilter("nearest", "nearest")
 
 	-- === SEKCJA DIAGNOSTYCZNA CZCIONEK ===
-	-- Zakładając, że czcionki są ładowane po wczytaniu modułów:
 	Game.fonts = {}
 	local defaultFontSize = 18
 	Game.fonts.default = love.graphics.newFont(defaultFontSize)
 	love.graphics.setFont(Game.fonts.default)
 
 	print("MAIN.LUA LOAD (DIAG): Ustawiono domyślną czcionkę o rozmiarze " .. tostring(defaultFontSize))
-	-- Wstępnie ustawiamy skalę globalną (jeśli nie jest używana, będzie 1.0)
+	-- Wstępnie ustawiamy skalę globalną 
 	local w, h = love.graphics.getWidth(), love.graphics.getHeight()
 	_G.scale = w / 1920 
 	print("MAIN.LUA LOAD (DIAG): Global Scale (_G.scale) = " .. tostring(_G.scale))
@@ -136,20 +130,17 @@ function love.load()
 	
 	controls.init(menu)
 
-	-- === INICJALIZACJA PRZYCISKÓW HUD ===
-	buttonsUI:load() 
-	--------------------------------------
-
 	-- ZMIANA A: Wymuszamy odświeżenie pozycji HUD po załadowaniu
 	if Game.bars and Game.bars.recalculatePosition then
 		Game.bars:recalculatePosition()
 		print("MAIN.LUA LOAD (DIAG): Wymuszenie bars:recalculatePosition.")
 	end
 	
-	-- POPRAWKA: Zabezpieczenie przed błędem 'attempt to index field 'minimap' (a number value)'
-	if type(Game.minimap) == 'table' and Game.minimap.recalculatePosition then
-		Game.minimap:recalculatePosition(Game.map) -- DODANIE ARGUMENTU Game.map
-		print("MAIN.LUA LOAD (DIAG): Wymuszenie minimap:recalculatePosition.")
+	-- POPRAWKA MINIMAPY: Ustawienie mobilnej skali, a następnie przeliczenie pozycji
+	if type(Game.minimap) == 'table' and Game.minimap.setMobileScale and Game.minimap.recalculatePosition then
+		Game.minimap:setMobileScale() -- Ustawienie mniejszej skali, jeśli jest mobilny
+		Game.minimap:recalculatePosition(Game.map)
+		print("MAIN.LUA LOAD (DIAG): Wymuszenie minimap:recalculatePosition po ustawieniu skali.")
 	end
 	
 	-- Inventory
@@ -228,9 +219,10 @@ function love.resize(w, h)
 		Game.bars:recalculatePosition()
 	end
 	
-	-- POPRAWKA: Zabezpieczenie przed błędem 'attempt to index field 'minimap' (a number value)'
-	if type(Game.minimap) == 'table' and Game.minimap.recalculatePosition then
-		Game.minimap:recalculatePosition(Game.map) -- DODANIE ARGUMENTU Game.map
+	-- ZMIANA C: ODŚWIEŻENIE MINIMAPY Z NOWĄ SKALĄ/WYMIAREM
+	if type(Game.minimap) == 'table' and Game.minimap.setMobileScale and Game.minimap.recalculatePosition then
+		Game.minimap:setMobileScale() -- Ustawienie mniejszej skali
+		Game.minimap:recalculatePosition(Game.map) 
 	end
 end
 
@@ -305,16 +297,13 @@ function love.draw()
 
 		Game.inventory:draw()
 		
-		-- === RYSOWANIE PRZYCISKÓW HUD (OPCJE/EKWIPUNEK) ===
-		buttonsUI:draw(Game)
-		-----------------------------------------------------
-
-		-- LOGIKA RYSOWANIA KONTROLEK DOTYKOWYCH
-		local os = love.system.getOS()
-		if Game.controls.draw and (os == "Android" or os == "iOS") then
+		-- === RYSOWANIE PRZYCISKÓW HUD (OPCJE/EKWIPUNEK) ORAZ MOBILNYCH ===
+		-- Używamy głównego kontrolera do rysowania wszystkich elementów HUD
+		if Game.controls and Game.controls.draw then
 			Game.controls.draw(Game)
 		end
-		
+		---------------------------------------------------------------------
+
 	elseif Game.state == "snake" then
 		Game.snake:draw()
 	end
@@ -338,19 +327,27 @@ function love.mousepressed(x, y, button)
 	controls.mousepressed(x, y, button, Game)
 end
 
--- *** DODANE ZDARZENIE ***
 function love.mousereleased(x, y, button)
 	controls.mousereleased(x, y, button, Game)
 end
---------------------------
 
 function love.wheelmoved(x, y)
 	controls.wheelmoved(x, y, Game)
 end
 
+-- ******************************************************
+-- POPRAWIONA LOGIKA MOUSEMOVED
+-- ******************************************************
 function love.mousemoved(x, y, dx, dy, istouch)
-    inventory:mousemoved(x, y, dx, dy, istouch)
+	-- 1. Obsługa ruchu kamery (z controls.lua)
+	controls.mousemoved(x, y, dx, dy)
+	
+	-- 2. Obsługa ruchu w inwentarzu (dla drag & drop/podświetleń)
+	if _G.inventory and _G.inventory.mousemoved then
+	    _G.inventory:mousemoved(x, y, dx, dy, istouch)
+	end
 end
+
 
 -- ANDROID / IOS TOUCH INPUT HANDLING
 

@@ -23,6 +23,11 @@ menu.fpsLimit = 60
 local SETTINGS_WIDTH = 400
 local SETTINGS_HEIGHT = 300
 
+-- ZMIANA 1: Nowe zmienne do obsługi kliknięcia/dotyku mobilnego (cooldown)
+menu.isMouseDown = false
+menu.lastPressTime = 0
+local PRESS_THRESHOLD = 0.3 -- Maksymalny czas trwania, aby uznać to za kliknięcie/tapnięcie
+
 -- (Reszta ustawień, keyBindings itp., bez zmian)
 menu.keyBindings = {
     Up = "w", Left = "a", Down = "s", Right = "d",
@@ -240,7 +245,13 @@ function menu.draw(Game)
         local x = screenWidth / 2 - menu.buttonWidth / 2
         local y = startY + (i - 1) * (menu.buttonHeight + menu.buttonSpacing)
 
-        if i == menu.selectedButton then
+        -- ZMIANA 2: Dodajemy wizualne wsparcie dla naciśniętego przycisku
+        local isPressed = (i == menu.selectedButton)
+        if menu.isMouseDown and i == menu.selectedButton then
+            isPressed = true
+        end
+
+        if isPressed then
             love.graphics.setColor(0.3, 0.6, 0.9)
         else
             love.graphics.setColor(0.2, 0.2, 0.2)
@@ -398,40 +409,31 @@ end
 -- Obsługa myszy / dotyku
 function menu:mousepressed(x, y, button, Game) 
     if button == 1 then
+        
+        menu.isMouseDown = true -- ZMIANA 3: Rejestrujemy naciśnięcie
+        menu.lastPressTime = love.timer.getTime() -- ZMIANA 3: Rejestrujemy czas
+        
         local screenWidth = love.graphics.getWidth()
         local screenHeight = love.graphics.getHeight()
         -- Obliczamy dynamiczne X i Y
         local settingsX = screenWidth / 2 - SETTINGS_WIDTH / 2
         local settingsY = screenHeight / 2 - SETTINGS_HEIGHT / 2
-
+        
         -- === PRIORYTET 1: Logika wprowadzania nazwy ZALEŻNA OD STANU GRY ===
         if Game.state == "nick_input" then
-            local inputX = screenWidth / 2 - 200
-            local inputY = screenHeight / 2 - 30
-            local inputW = 400
-            local inputH = 60
-            
-            -- Jeśli kliknięto wewnątrz pola input, nic nie robimy
-            if x >= inputX and x <= inputX + inputW and y >= inputY and y <= inputY + inputH then
-                -- Może tu być kod, który aktywuje pole, ale love.keyboard.setTextInput(true) to robi
-                return 
-            end
-            
-            -- Jeśli kliknięto poza polem, wychodzimy z trybu wprowadzania nicka
-            love.keyboard.setTextInput(false)
-            menu:updateButtons(Game) 
-            Game.state = "menu" 
+            -- Tylko oznaczamy, że mysz jest naciśnięta, akcja (opuszczenie) nastąpi w mousereleased
             return
         end
 
         -- === PRIORYTET 2: Logika ustawień (OK) ===
         if menu.settingsOpen then
-            -- ... (Logika klikania w ustawienia bez zmian)
+            -- Mimo że przenosimy akcję przycisków menu na released, suwaki i wybór klawiszy MUSZĄ być w pressed
+            
             if menu.keySettingOpen then
                 local keyY = settingsY + 70
                 local w = SETTINGS_WIDTH - 40
                 local h = 20
-                local keyX = settingsX + SETTINGS_WIDTH * 0.7 - 30 -- Użycie dynamicznego X z rysowania
+                local keyX = settingsX + SETTINGS_WIDTH * 0.7 - 30 
                 keyNamesSorted = GetSortedKeyNames()
 
                 for i, name in ipairs(keyNamesSorted) do
@@ -452,8 +454,7 @@ function menu:mousepressed(x, y, button, Game)
             -- Kliknięcie na przycisk Key Bindings
             if x >= keySettingsX and x <= keySettingsX + keySettingsW and y >= keySettingsY and y <= keySettingsY + 20 then
                 menu.settingsSelected = 3
-                menu.keySettingOpen = true
-                menu.keyBindingsSelected = 1
+                -- NIE WYWOŁUJEMY ZMIANY STANU (menu.keySettingOpen = true) TUTAJ, CZEKAMY NA MOUSERELEASED
                 return
             end
 
@@ -479,7 +480,6 @@ function menu:mousepressed(x, y, button, Game)
                 if pos > 0.98 then
                     menu.fpsLimit = "unlimited"
                 else
-                    -- Zaokrąglamy do najbliższej wielokrotności 5
                     menu.fpsLimit = math.floor(pos*240/5)*5
                 end
                 menu.settingsSelected = 2
@@ -492,9 +492,11 @@ function menu:mousepressed(x, y, button, Game)
             local settingsBoundaryW = SETTINGS_WIDTH
             local settingsBoundaryH = SETTINGS_HEIGHT
             if not (x >= settingsBoundaryX and x <= settingsBoundaryX + settingsBoundaryW and y >= settingsBoundaryY and y <= settingsBoundaryY + settingsBoundaryH) then
+                -- Zamykamy ustawienia NATYCHMIAST
                 menu.settingsOpen = false
                 return 
             end
+            
             return
         end
 
@@ -507,14 +509,78 @@ function menu:mousepressed(x, y, button, Game)
                 local by = startY + (i - 1) * (menu.buttonHeight + menu.buttonSpacing)
 
                 if x >= bx and x <= bx + menu.buttonWidth and y >= by and y <= by + menu.buttonHeight then
+                    -- Tylko zaznaczamy przycisk. Akcja nastąpi w mousereleased.
                     menu.selectedButton = i
+                    return
+                end
+            end
+        end
+    end
+end
+
+
+-- ZMIANA 4: DODANIE FUNKCJI MOUSERELEASED
+function menu:mousereleased(x, y, button, Game)
+    menu.isMouseDown = false
+    
+    if button == 1 then
+        local pressDuration = love.timer.getTime() - menu.lastPressTime
+        local isTap = pressDuration < PRESS_THRESHOLD -- Sprawdzenie, czy to było szybkie tapnięcie
+        
+        local screenWidth = love.graphics.getWidth()
+        local screenHeight = love.graphics.getHeight()
+        local settingsX = screenWidth / 2 - SETTINGS_WIDTH / 2
+        local settingsY = screenHeight / 2 - SETTINGS_HEIGHT / 2
+
+        -- === PRIORYTET 1: Logika wprowadzania nazwy (wyjście) ===
+        if Game.state == "nick_input" and isTap then
+            local inputX = screenWidth / 2 - 200
+            local inputY = screenHeight / 2 - 30
+            local inputW = 400
+            local inputH = 60
+            
+            -- Jeśli kliknięto poza polem input, wychodzimy z trybu wprowadzania nicka
+            if not (x >= inputX and x <= inputX + inputW and y >= inputY and y <= inputY + inputH) then
+                love.keyboard.setTextInput(false)
+                menu:updateButtons(Game) 
+                Game.state = "menu" 
+                return
+            end
+        end
+
+
+        -- === PRIORYTET 2: Logika ustawień (Przycisk Key Bindings) ===
+        if menu.settingsOpen and isTap then
+            local keySettingsX = settingsX+20
+            local keySettingsY = settingsY+170
+            local keySettingsW = SETTINGS_WIDTH-40
+            
+            -- Kliknięcie na przycisk Key Bindings
+            if x >= keySettingsX and x <= keySettingsX + keySettingsW and y >= keySettingsY and y <= keySettingsY + 20 then
+                menu.settingsSelected = 3
+                menu.keySettingOpen = true -- Zmieniamy stan dopiero po released
+                menu.keyBindingsSelected = 1
+                return
+            end
+        end
+        
+        -- === PRIORYTET 3: Logika menu głównego ===
+        if Game.state == "menu" and isTap then 
+            local startY = screenHeight / 2 - (#menu.buttons * (menu.buttonHeight + menu.buttonSpacing)) / 2
+
+            for i, btn in ipairs(menu.buttons) do
+                local bx = screenWidth / 2 - menu.buttonWidth / 2
+                local by = startY + (i - 1) * (menu.buttonHeight + menu.buttonSpacing)
+
+                -- Sprawdź, czy puszczono w obrębie zaznaczonego przycisku (menu.selectedButton)
+                if x >= bx and x <= bx + menu.buttonWidth and y >= by and y <= by + menu.buttonHeight and i == menu.selectedButton then
                     
                     if btn.action == "start" then
                         Game.state = "nick_input" 
                         love.keyboard.setTextInput(true) 
                         return
                     elseif btn.action == "continue" then
-                        menu:resumeGame(Game) -- ZMIANA: Używamy nowej funkcji
+                        menu:resumeGame(Game) 
                         return
                     elseif btn.action == "options" then
                         menu.settingsOpen = true
@@ -529,6 +595,7 @@ function menu:mousepressed(x, y, button, Game)
     end
 end
 
+
 -- Akcja po wybraniu przycisku (OK)
 function menu:selectButton()
     local action = menu.buttons[menu.selectedButton].action
@@ -541,5 +608,8 @@ function menu:textinput(t, Game)
         menu.playerNameInput = menu.playerNameInput .. t
     end
 end
+
+-- ZMIANA 5: Eksportujemy funkcję mousereleased
+menu.mousereleased = menu.mousereleased
 
 return menu
