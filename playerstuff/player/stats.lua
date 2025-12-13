@@ -3,9 +3,9 @@ local Stats = {}
 function Stats:init(player)
     -- Bazowe wartości
     player.baseDmg = 10
-    player.baseMaxHp = 64
+    player.baseMaxHp = 100
     player.baseMaxStamina = 128
-    player.baseMaxMana = 128
+    player.baseMaxMana = 20
     player.baseSpeed = 350
     
     -- Inicjalizacja punktów levelingu
@@ -23,13 +23,13 @@ function Stats:init(player)
     player.maxStamina = player.baseMaxStamina
     player.stamina = player.maxStamina
     player.maxMana = player.baseMaxMana
-    player.mana = player.baseMaxMana
+    player.mana = player.maxMana
     player.speed = player.baseSpeed
     
     -- Regeneracja
     player.staminaRegen = 20
     player.staminaDrain = 30
-    player.hpRegen = 2
+    player.hpRegen = 2  -- Regeneracja 2 HP na sekundę
     player.manaRegen = 10
 end
 
@@ -63,13 +63,29 @@ function Stats:calculate(player)
 
     -- Capowanie wartości
     player.damage = player.str
-    player.hp = math.min(player.hp, player.maxHp)
+    
+    -- UWAGA: Ta linia powoduje, że HP nie będzie większe niż MaxHP, ale nie wyleczy natychmiast.
+    -- Oznacza to, że jeśli MaxHP wzrosło, to HP musi się zregenerować do nowej wartości.
+    player.hp = math.min(player.hp, player.maxHp) 
+    
     player.stamina = math.min(player.stamina, player.maxStamina)
     player.mana = math.min(player.mana, player.maxMana)
 end
 
 function Stats:updateRegen(player, dt)
+    
+    -- [[ DODANA REGENERACJA HP ]]
+    -- HP regeneruje się, aż osiągnie player.maxHp
+    player.hp = math.min(player.maxHp, player.hp + player.hpRegen * dt)
+    
+    -- REGENERACJA MANY
     player.mana = math.min(player.maxMana, player.mana + player.manaRegen * dt)
+    
+    -- [[ DODANA REGENERACJA STAMINY ]]
+    -- Jeśli Stamina ma się regenerować automatycznie, należy użyć:
+    -- player.stamina = math.min(player.maxStamina, player.stamina + player.staminaRegen * dt)
+    -- W przeciwnym razie, zostaw ten wiersz zakomentowany (jak w oryginalnej uwadze).
+    
     -- Stamina jest regenerowana w movement, bo zależy od sprintu, ale można by tu przenieść
 end
 

@@ -45,9 +45,9 @@ function Combat:finishReload(player)
     if not (weaponItem and weaponItem.data) then return end
 
     if weaponItem.data.name == "Shotgun" then
-        local needed = 8 - (player.shotgunAmmo or 0)
+        local needed = 4 - (player.shotgunAmmo or 0)
         if (player.extraShotgunAmmo or 0) >= needed then
-            player.shotgunAmmo = 8
+            player.shotgunAmmo = 4
             player.extraShotgunAmmo = player.extraShotgunAmmo - needed
         else
             player.shotgunAmmo = (player.shotgunAmmo or 0) + (player.extraShotgunAmmo or 0)
@@ -70,7 +70,7 @@ function Combat:tryReload(player)
     if not (weaponItem and weaponItem.data) then return end
 
     if weaponItem.data.name == "Shotgun" then
-        if not player.reloading and (player.shotgunAmmo or 0) < 8 and (player.extraShotgunAmmo or 0) > 0 then
+        if not player.reloading and (player.shotgunAmmo or 0) < 4 and (player.extraShotgunAmmo or 0) > 0 then
             player.reloading = true
             player.reloadTimer = player.reloadTime
         end

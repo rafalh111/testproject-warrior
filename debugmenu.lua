@@ -1,7 +1,7 @@
 -- debugmenu.lua
 local debugMenu = {}
 
-function debugMenu.draw(player, cam, world, dungeon, inventory, arcade)
+function debugMenu.draw(player, cam, world, dungeon, inventory, arcade, enemies) -- Dodano 'enemies'
     local love = love -- lokalna referencja dla minimalnie szybszego dostępu
 
     love.graphics.setColor(0, 0, 0, 0.6)
@@ -20,7 +20,7 @@ function debugMenu.draw(player, cam, world, dungeon, inventory, arcade)
     line(string.format("Memory: %.2f MB", collectgarbage("count") / 1024))
     line("Draw calls: " .. love.graphics.getStats().drawcalls)
     
-    -- Poprawne zliczanie ciał
+    -- Poprawne zliczanie ciał (Ściany, Kolider Gracza)
     local totalWalls = 0
     if dungeon and dungeon.colliders then
         for _, chunkY in pairs(dungeon.colliders) do
@@ -40,6 +40,20 @@ function debugMenu.draw(player, cam, world, dungeon, inventory, arcade)
     end
     
     line("-----------------------------------")
+    
+    -- === WROGOWIE ===
+
+    local activeEnemyList = enemies.activeEnemies or enemies.list 
+
+        if enemies and activeEnemyList then
+            local activeEnemyCount = #activeEnemyList
+                line("Active Enemies: " .. tostring(activeEnemyCount))
+        elseif enemies then
+            line("Enemies: Cannot read list (missing 'activeEnemies' or 'list')")
+        end
+            line("-----------------------------------")
+    
+    -- === SEKJA: PRZEDMIOTY ===
     line("Items on map: " .. #inventory.itemsOnMap)
     line("Inventory slots: " .. #inventory.items)
     

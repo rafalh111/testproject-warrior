@@ -109,65 +109,72 @@ function EnemiesLogic:takeDamage(enemy)
 end
 
 function EnemiesLogic:update(dt)
-	-- Pętla od końca
-	for i = #self.list, 1, -1 do
-		local e = self.list[i]
-		
-		-- Sprawdzenie, czy wróg jest martwy, i jego usunięcie
-		if e.isDead then
-            -- DODANIE XP
-            if e.id == EnemyDefinitions.SLIME_ID then -- Sprawdzamy, czy to Slime (lub inny wróg dający XP)
-                leveling:addXP(e.id)
+    -- Pętla od końca
+    for i = #self.list, 1, -1 do
+        local e = self.list[i]
+        
+        -- Sprawdzenie, czy wróg jest martwy, i jego usunięcie
+        if e.isDead then
+            
+            -- === NAPRAWA XP ===
+            -- 1. Pobieramy pełną definicję wroga na podstawie ID
+            local def = EnemyDefinitions.list[e.id]
+            
+            -- 2. Sprawdzamy czy definicja istnieje i czy leveling jest załadowany
+            if def and leveling then
+                -- 3. Przekazujemy CAŁĄ DEFINICJĘ (tabelę), a nie samo ID
+                -- Dzięki temu leveling.lua może odczytać def.xpMin i def.xpMax
+                leveling:addXP(def)
             end
-			    if e.collider then
-				e.collider:destroy()
-			end
-			-- Usuwamy wroga z listy
-			table.remove(self.list, i)
-			goto continue
-		end
-		
-		-- Logika ruchu Slime'a (jeśli dynamiczny)
-		if not EnemyDefinitions.list[e.id].isStatic then
-			-- ZABEZPIECZENIE: Aktualizacja pozycji tylko jeśli kolider istnieje
-			if e.collider then
-				local centerX, centerY = e.collider:getPosition() -- Pozycja kolidera to środek
-				
-				-- Aktualizacja pozycji e.x i e.y (lewy górny róg)
-				e.x = centerX - e.w / 2
-				e.y = centerY - e.h / 2
-			end
-		end
-		
-		-- Renderowanie i animacja Slime'a
-		if EnemyDefinitions.list[e.id].renderKey == "SLIME_RENDER" then
-			enemyRenderers.SLIME_RENDER.updateSlimeAnimation(e, dt)
-		end
-		
-		if e.damageTakenThisFrame > 0 then
-			table.insert(self.damageTexts, {
-				x = e.x + e.w / 2,
-				y = e.y - e.dmgTextOffsetY, 
-				dmg = math.floor(e.damageTakenThisFrame),
-				timer = 0.5,
-				vy = -30,
-				color = e.color or {1, 1, 0}
-			})
-			e.damageTakenThisFrame = 0 
-		end
-		
-		::continue::
-	end
+            -- ==================
 
-	-- update floating damage texts (bez zmian)
-	for i = #self.damageTexts, 1, -1 do
-		local t = self.damageTexts[i]
-		t.y = t.y + t.vy * dt
-		t.timer = t.timer - dt
-		if t.timer <= 0 then
-			table.remove(self.damageTexts, i)
-		end
-	end
+            if e.collider then
+                e.collider:destroy()
+            end
+            
+            -- Usuwamy wroga z listy
+            table.remove(self.list, i)
+            goto continue
+        end
+        
+        -- ... reszta Twojego kodu (ruch, animacja, teksty obrażeń) ...
+        -- Logika ruchu Slime'a (jeśli dynamiczny)
+        if not EnemyDefinitions.list[e.id].isStatic then
+             if e.collider then
+                local centerX, centerY = e.collider:getPosition()
+                e.x = centerX - e.w / 2
+                e.y = centerY - e.h / 2
+            end
+        end
+        
+        if EnemyDefinitions.list[e.id].renderKey == "SLIME_RENDER" then
+            enemyRenderers.SLIME_RENDER.updateSlimeAnimation(e, dt)
+        end
+        
+        if e.damageTakenThisFrame > 0 then
+            table.insert(self.damageTexts, {
+                x = e.x + e.w / 2,
+                y = e.y - e.dmgTextOffsetY, 
+                dmg = math.floor(e.damageTakenThisFrame),
+                timer = 0.5,
+                vy = -30,
+                color = e.color or {1, 1, 0}
+            })
+            e.damageTakenThisFrame = 0 
+        end
+        
+        ::continue::
+    end
+
+    -- update floating damage texts
+    for i = #self.damageTexts, 1, -1 do
+        local t = self.damageTexts[i]
+        t.y = t.y + t.vy * dt
+        t.timer = t.timer - dt
+        if t.timer <= 0 then
+            table.remove(self.damageTexts, i)
+        end
+    end
 end
 
 function EnemiesLogic:draw()

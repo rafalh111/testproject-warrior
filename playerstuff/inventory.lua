@@ -705,7 +705,7 @@ function inventory:draw()
 				love.graphics.setColor(1, 1, 0)
 				love.graphics.setLineWidth(math.max(1, 3 * self.scale))
 			else
-				love.graphics.setColor(1, 1, 1)
+				love.graphics.setColor(0.5, 0.5, 0.5)
 				love.graphics.setLineWidth(1)
 			end
 			love.graphics.rectangle("line", slotX, slotY, slotW, slotH, 5 * self.scale, 5 * self.scale)

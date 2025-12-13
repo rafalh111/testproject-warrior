@@ -3,15 +3,12 @@ local math = math or {}
 local love = love or {}
 local player = nil 
 
--- ============================================================
--- KONFIGURACJA GRY I PROGRESJI
--- ============================================================
-local ENEMY_XP_VALUE = 2 
-local BASE_WINDOW_WIDTH = 300 -- Zmniejszony rozmiar
-local BASE_WINDOW_HEIGHT = 400 -- Zmniejszony rozmiar
-local BASE_SCREEN_W = 800 -- Wartość referencyjna dla skalowania (np. 800px)
+-- KONFIGURACJA GRY
+local BASE_WINDOW_WIDTH = 300
+local BASE_WINDOW_HEIGHT = 400
+local BASE_SCREEN_W = 800
 
--- -- -- STAN POZIOMOWANIA -- -- --
+-- STAN POZIOMOWANIA
 Leveling.currentLevel = 0
 Leveling.currentXP = 0
 Leveling.XPToNextLevel = 2 
@@ -20,11 +17,11 @@ Leveling.levelUpAvailable = false
 Leveling.attributePoints = 0 
 Leveling.selectedAttribute = 1 
 
--- -- -- Okno ulepszeń (Dynamiczne) -- -- --
+-- Okno ulepszeń
 Leveling.window = {
 	width = BASE_WINDOW_WIDTH,
 	height = BASE_WINDOW_HEIGHT,
-	scale = 1.0 -- Zmienna do przechowywania skalowania
+	scale = 1.0
 }
 
 Leveling.attributes = {
@@ -40,8 +37,7 @@ Leveling.upgradeStats = {
 	SPEED = { baseKey = "baseSpeed", value = 1, name = "Movement Speed (+1% Bazowej)" },
 }
 
-
--- -- -- FUNKCJE POMOCNICZE -- -- --
+-- FUNKCJE POMOCNICZE
 
 -- Oblicza XP potrzebne na następny poziom
 local function calculateXP(level)
@@ -49,25 +45,21 @@ local function calculateXP(level)
 	return 2 ^ level
 end
 
--- Aktualizuje statystyki gracza (poziomy % i płaskie) po wydaniu punktu.
+-- Aktualizuje statystyki gracza
 function Leveling:recalculateStats(attributeKey)
 	local upgrade = Leveling.upgradeStats[attributeKey]
 	if not upgrade then return end
 	
 	local pointsKey = upgrade.baseKey .. "Points"
 	local points = player[pointsKey] or 0
-	local baseKey = upgrade.baseKey
+	local base = player[upgrade.baseKey]
 
-	-- 1. Obliczanie statystyk
-	local base = player[baseKey]
-	-- Wartość bazowa + (Wartość bazowa * Punkty / 100)
 	local newValue = base + (base * (points / 100)) 
-	-- Korekta dla SPEED, gdzie value to płaski bonus 
+	
 	if attributeKey == "SPEED" then
 		newValue = base + points
 	end
 
-	-- 2. Aktualizacja i uzupełnianie (tylko dla HP i MANA)
 	if attributeKey == "HP" then
 		local diff = newValue - (player.maxHp or base) 
 		player.maxHp = newValue
@@ -86,18 +78,17 @@ function Leveling:recalculateStats(attributeKey)
 end
 
 
--- Wymaga, aby player został przekazany z main.lua
 function Leveling:init(playerRef)
 	player = playerRef
 	
-	-- Inicjalizacja pól bazowych (wartości domyślne)
+	-- Inicjalizacja pól bazowych
 	player.baseMaxHp = player.baseMaxHp or 100
 	player.baseMaxMana = player.baseMaxMana or 100
 	player.baseSpeed = player.baseSpeed or 300
 	player.baseDamage = player.baseDamage or 5 
 	player.baseMaxStamina = player.baseMaxStamina or 100
 	
-	-- Inicjalizacja pól do śledzenia punktów atrybutów
+	-- Inicjalizacja pól do śledzenia punktów
 	local function initPoints(baseKey)
 		player[baseKey .. "Points"] = player[baseKey .. "Points"] or 0
 	end
@@ -114,16 +105,15 @@ function Leveling:init(playerRef)
 	player.maxStamina = player.maxStamina or player.baseMaxStamina
 	
 	player.currentLevel = player.currentLevel or 1
+	Leveling.XPToNextLevel = calculateXP(player.currentLevel)
 	player.currentXP = player.currentXP or 0
 	
-	-- Obliczenie skalowania przy starcie
 	self:recalculateWindowScale()
 end
 
--- Oblicza skalę okna na podstawie szerokości ekranu
+-- Oblicza skalę okna
 function Leveling:recalculateWindowScale()
 	local screenW = love.graphics.getWidth() or BASE_SCREEN_W
-	-- Skalowanie okna na podstawie proporcji ekranu do wartości bazowej (max 1.0)
 	local newScale = math.min(1.0, screenW / BASE_SCREEN_W)
 	Leveling.window.scale = newScale
 	Leveling.window.width = BASE_WINDOW_WIDTH * newScale
@@ -131,11 +121,24 @@ function Leveling:recalculateWindowScale()
 end
 
 
--- Funkcja dodająca XP (wywoływana po zabiciu wroga w enemieslogic.lua)
-function Leveling:addXP(enemyId)
+-- Funkcja dodająca XP (pobiera zakres z definicji wroga)
+function Leveling:addXP(enemyDef)
 	if Leveling.currentLevel >= Leveling.levelCap then return end
 	
-	local xpGained = ENEMY_XP_VALUE 
+	local xpMin = enemyDef.xpMin or 0
+	local xpMax = enemyDef.xpMax or 0
+
+	local xpGained = 0
+	
+	-- Losowanie XP z zakresu [xpMin, xpMax]
+	if love.math and love.math.random then
+		xpGained = love.math.random(xpMin, xpMax)
+	elseif math.random then
+		xpGained = math.floor(math.random() * (xpMax - xpMin + 1)) + xpMin
+	else
+		xpGained = xpMin
+	end
+	
 	Leveling.currentXP = Leveling.currentXP + xpGained
 	
 	while Leveling.currentXP >= Leveling.XPToNextLevel do
@@ -163,7 +166,6 @@ function Leveling:applyUpgrade(attributeKey)
 	local pointsKey = upgrade.baseKey .. "Points"
 
 	if player[pointsKey] ~= nil then
-		-- Dla większości atrybutów wartość to procent, dla SPEED to wartość płaska
 		player[pointsKey] = player[pointsKey] + upgrade.value
 		Leveling:recalculateStats(attributeKey)
 
@@ -194,18 +196,15 @@ function Leveling:keypressed(key)
 end
 
 
--- Obsługa kliknięcia/dotyku myszą na przyciski ulepszeń
+-- Obsługa kliknięcia/dotyku myszą
 function Leveling:mousepressed(x, y, button)
-	-- Akceptujemy tylko lewy przycisk myszy (1) lub dotyk (1)
 	if not Leveling.levelUpAvailable or button ~= 1 then return false end
 	
-	-- Ponowne przeliczenie skali na wypadek zmiany rozmiaru okna/ekranu
 	self:recalculateWindowScale() 
 
 	local win = Leveling.window
 	local scale = win.scale
 	
-	-- Wartości bazowe skalowane
 	local padding = 40 * scale
 	local buttonH = 40 * scale
 	local margin = 10 * scale
@@ -213,11 +212,11 @@ function Leveling:mousepressed(x, y, button)
 
 	local screenWidth = love.graphics.getWidth()
 	local winX = (screenWidth / 2) - (win.width / 2) 
-	local winY = 50 * scale -- Stała pozycja Y (skalowana)
+	local winY = 50 * scale
 	
-	-- Sprawdzamy kliknięcie wewnątrz okna w pierwszej kolejności
+	-- Sprawdzanie kliknięcia wewnątrz okna
 	if not (x >= winX and x <= winX + win.width and y >= winY and y <= winY + win.height) then
-		return false -- Kliknięto poza oknem ulepszeń
+		return false
 	end
 	
 	for i, attr in ipairs(Leveling.attributes) do
@@ -227,9 +226,9 @@ function Leveling:mousepressed(x, y, button)
 		
 		-- Dotyk w przycisk
 		if x >= btnX and x <= btnX + btnW and y >= btnY and y <= btnY + buttonH then
-			Leveling.selectedAttribute = i -- Zaznaczenie przycisku (dla wizualizacji)
-			Leveling:applyUpgrade(attr) -- Zastosowanie ulepszenia
-			return true -- Zwracamy true, aby kontroler wiedział, że obsłużono wejście
+			Leveling.selectedAttribute = i
+			Leveling:applyUpgrade(attr)
+			return true
 		end
 	end
 	
@@ -240,10 +239,7 @@ end
 -- RYSOWANIE
 
 function Leveling:draw()
-	-- Musimy przeliczyć skalę przed rysowaniem, na wypadek resize okna
 	self:recalculateWindowScale()
-	
-	-- Rysuje pasek XP 
 	self:drawXPBar()
 	
 	if not Leveling.levelUpAvailable then return end
@@ -251,7 +247,6 @@ function Leveling:draw()
 	local win = Leveling.window
 	local scale = win.scale
 
-	-- Wartości bazowe skalowane
 	local padding = 40 * scale
 	local buttonH = 40 * scale
 	local margin = 10 * scale
@@ -277,7 +272,6 @@ function Leveling:draw()
 	love.graphics.setColor(1, 1, 1)
 	local title = "LEVEL UP! (" .. Leveling.attributePoints .. " points)"
 	
-	-- Użycie push/pop i skalowanie fontu, aby tekst nie był za mały/duży
 	love.graphics.push()
 	love.graphics.scale(scale, scale)
 	love.graphics.printf(title, winX/scale, (winY + 10)/scale, win.width/scale, "center") 
@@ -285,7 +279,7 @@ function Leveling:draw()
 	
 	-- Instrukcja
 	love.graphics.push()
-	love.graphics.scale(scale * 0.7, scale * 0.7) -- Mniejsza skala dla podpowiedzi
+	love.graphics.scale(scale * 0.7, scale * 0.7)
 	local instructionText = "Wybierz atrybut. Użyj ENTER/E do potwierdzenia lub kliknij przycisk."
 	love.graphics.setColor(1, 1, 1, 0.8)
 	love.graphics.printf(instructionText, winX/(scale * 0.7), (winY + win.height - 30)/(scale * 0.7), win.width/(scale * 0.7), "center")
@@ -294,12 +288,11 @@ function Leveling:draw()
 	-- Przyciski ulepszeń
 	for i, attr in ipairs(Leveling.attributes) do
 		local upgrade = Leveling.upgradeStats[attr]
-		-- Korekta Y - Używamy i+1, bo tytuł zajmuje pierwszą linię (padding)
 		local btnY = winY + padding + (i * (buttonH + margin)) 
 		local btnX = winX + sideMargin 
 		local btnW = win.width - (sideMargin * 2)
 		
-		-- Podświetlenie wybranego przycisku
+		-- Podświetlenie
 		if i == Leveling.selectedAttribute then
 			love.graphics.setColor(0.9, 0.5, 0.1, 1)
 			love.graphics.setLineWidth(3 * scale)
@@ -315,11 +308,10 @@ function Leveling:draw()
 		love.graphics.setColor(0.8, 0.8, 1)
 		love.graphics.rectangle("line", btnX, btnY, btnW, buttonH, 5 * scale)
 		
-		-- Rysowanie tekstu z uwzględnieniem skalowania
+		-- Rysowanie tekstu
 		love.graphics.push()
 		love.graphics.scale(scale, scale)
 
-		-- Tekst atrybutu
 		local statText = string.format("%s", upgrade.name)
 		love.graphics.setColor(1, 1, 1)
 		love.graphics.printf(statText, btnX/scale, (btnY + 5)/scale, btnW/scale, "center")
@@ -343,12 +335,10 @@ end
 
 -- Rysuje pasek XP
 function Leveling:drawXPBar()
-	-- Wartości niezależne od głównego skalowania okna, ale oparte na stałych UI
 	local uiScale = 1.0 
 	local barWidth = 200 * uiScale
 	local barHeight = 15 * uiScale
 	local uiX = 10 * uiScale
-	-- Pozycja Y ustawiona pod innymi paskami (HP, MANA, STAMINA)
 	local uiY = (60) * uiScale 
 	
 	local xpPercent = math.max(0, math.min(Leveling.currentXP / Leveling.XPToNextLevel, 1))
@@ -367,9 +357,9 @@ function Leveling:drawXPBar()
 	
 	-- Tekst XP
 	local xpText = string.format("Level %d | XP: %d / %d", 
-								Leveling.currentLevel, 
-								math.floor(Leveling.currentXP), 
-								math.floor(Leveling.XPToNextLevel))
+								 Leveling.currentLevel, 
+								 math.floor(Leveling.currentXP), 
+								 math.floor(Leveling.XPToNextLevel))
 	love.graphics.setColor(1, 1, 1)
 	love.graphics.printf(xpText, uiX, uiY + barHeight/2 - 6, barWidth, "center")
 end

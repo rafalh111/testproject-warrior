@@ -9,17 +9,18 @@ function EnemySpawn.spawnInitialWave(enemies, EnemyDefinitions)
         EnemyDefinitions.SLIME_ID,
         EnemyDefinitions.RED_SLIME_ID,
         EnemyDefinitions.BLUE_SLIME_ID,
-        EnemyDefinitions.GREEN_SLIME_ID
+        EnemyDefinitions.GREEN_SLIME_ID,
+        EnemyDefinitions.BOSS_SLIME_ID
     }
 
     -- Liczba dostępnych typów Slime'ów
     local numSlimeTypes = #slimeTypes
 
-    -- Lokalizacja spawnu (centrum, np. 100, 100)
+    -- Lokalizacja spawnu
     local centerX = 1200
     local centerY = 1200
-    local spawnRadius = 500 -- Promień, w którym Slime'y będą się pojawiać
-    local count = 100 -- Liczba Slime'ów do spawnowania
+    local spawnRadius = 500
+    local count = 100
 
     -- Spawnowanie jednego Slime'a w centrum (jako "lider")
     enemies:spawnEnemy(EnemyDefinitions.SLIME_ID, centerX, centerY, nil, nil)

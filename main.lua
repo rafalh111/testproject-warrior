@@ -42,8 +42,6 @@ bullets = require("combat.bullets")		_G.bullets = bullets
 enemies = require("combat.enemieslogic")	_G.enemies = enemies
 
 local EnemyDefinitions = require("combat.enemieslist")
-
--- UWAGA: Jeśli plik na dysku to SlimeRenderer.lua, Zmień tę linię na:
 local yetAnotherEnemies = require("combat.slimerenderer")
 
 player = require("playerstuff.player") _G.player = player
@@ -60,16 +58,15 @@ local bars = require("playerstuff.bars")
 local pickup = require("playerstuff.pickupitemy")
 local menu = require("menu")
 
--- Ustawienie domyślnej skali (dla diagnostyki, zakładając, że używasz 1920 jako bazy)
+
 _G.scale = 1.0 
-----------------------------------------------------------------------------------
 
 
 function love.load()
 	-- Inicjalizacja obiektu gry
 
 	_G.Game = Game
-	Game.map = { layers = {}, width = 1024, height = 1024, tilewidth = 64, tileheight = 64 }
+	Game.map = { layers = {}, width = 512, height = 512, tilewidth = 64, tileheight = 64 }
 	
 	world = wf.newWorld(0, 0) 
 	_G.world = world
@@ -309,7 +306,7 @@ function love.draw()
 	end
 
 	if Game.debugMode then
-		debugMenu.draw(Game.player, cam, world, dungeon, Game.inventory, Game.arcade)
+		debugMenu.draw(Game.player, cam, world, dungeon, Game.inventory, Game.arcade, Game.enemies)
 	end
 end
 
