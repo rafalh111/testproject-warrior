@@ -80,7 +80,7 @@ function inventory:init()
 	-- Sloty wyposażenia
 	self.equipped = {
 		weapon = nil, artifact1 = nil, artifact2 = nil, artifact3 = nil,
-		helmet = nil, chestplate = nil, leggins = nil, boots = nil
+		helmet = nil, chestplate = nil, pants = nil, boots = nil
 	}
 	self.selectedEqRow = 1
 	self.selectedEqCol = 1
@@ -89,7 +89,7 @@ function inventory:init()
 	self.eqSlotMap = {
 		[1] = { [1] = "weapon", [2] = "helmet" },
 		[2] = { [1] = "artifact1", [2] = "chestplate" },
-		[3] = { [1] = "artifact2", [2] = "leggins" },
+		[3] = { [1] = "artifact2", [2] = "pants" },
 		[4] = { [1] = "artifact3", [2] = "boots" },
 	}
 
@@ -235,7 +235,7 @@ function inventory:recalculatePosition()
 		
 		helmet = {x = rightX,y = startY + 0 * pad},
 		chestplate = {x = rightX,y = startY + 1 * pad},
-		leggins = {x = rightX,y = startY + 2 * pad},
+		pants = {x = rightX,y = startY + 2 * pad},
 		boots = {x = rightX,y = startY + 3 * pad}
 	}
 
@@ -305,7 +305,7 @@ function inventory:equipItem(item)
 				break
 			end
 		end
-	elseif itemType == "weapon" or itemType == "helmet" or itemType == "chestplate" or itemType == "leggins" or itemType == "boots" then
+	elseif itemType == "weapon" or itemType == "helmet" or itemType == "chestplate" or itemType == "pants" or itemType == "boots" then
 		slot = itemType
 	end
 

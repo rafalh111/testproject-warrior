@@ -62,14 +62,14 @@ local items = {
         bonuses = { hp = 0.3 },
         type = "chestplate"
     },
-    leggins = {
+    pants = {
         id = 7,
-        name = "leggins",
-        desc = "Good Iron Leggins. +10% HP",
-        imagePath = "sprites/leggins.png",
+        name = "pants",
+        desc = "Good Iron pants. +10% HP",
+        imagePath = "sprites/pants.png",
         image = nil,
         bonuses = { hp = 0.1 },
-        type = "leggins"
+        type = "pants"
     },
     boots = {
         id = 8,

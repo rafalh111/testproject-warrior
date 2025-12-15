@@ -145,7 +145,7 @@ function love.load()
 	itemsData:loadImages()
 	inventory.items = {}
 
-	local startingItems = { "BUZZGAREN", "StaminaRing", "helmet", "chestplate", "leggins", "boots", "Shotgun", "AssaultRifle" }
+	local startingItems = { "BUZZGAREN", "StaminaRing", "helmet", "chestplate", "pants", "boots", "Shotgun", "AssaultRifle" }
 	for i, itemName in ipairs(startingItems) do
 		local item = { itemType = itemName, data = itemsData[itemName], equipped = false, amount = 1 }
 		inventory.items[i] = item

@@ -5,10 +5,10 @@ function Combat:init(player)
     player.reloadTime = 3
     player.reloadTimer = 0
 
-    player.ammo = player.ammo or 322
+    player.ammo = player.ammo or 32
     player.extraAmmo = player.extraAmmo or 9999
-    player.shotgunAmmo = player.shotgunAmmo or 888
-    player.extraShotgunAmmo = player.extraShotgunAmmo or 32
+    player.shotgunAmmo = player.shotgunAmmo or 8
+    player.extraShotgunAmmo = player.extraShotgunAmmo or 9999
     
     player.currentAmmo = 0
     player.currentExtraAmmo = 0
@@ -70,7 +70,7 @@ function Combat:tryReload(player)
     if not (weaponItem and weaponItem.data) then return end
 
     if weaponItem.data.name == "Shotgun" then
-        if not player.reloading and (player.shotgunAmmo or 0) < 4 and (player.extraShotgunAmmo or 0) > 0 then
+        if not player.reloading and (player.shotgunAmmo or 0) < 8 and (player.extraShotgunAmmo or 0) > 0 then
             player.reloading = true
             player.reloadTimer = player.reloadTime
         end
