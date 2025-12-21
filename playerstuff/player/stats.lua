@@ -73,20 +73,12 @@ function Stats:calculate(player)
 end
 
 function Stats:updateRegen(player, dt)
-    
-    -- [[ DODANA REGENERACJA HP ]]
-    -- HP regeneruje się, aż osiągnie player.maxHp
+    -- REGENERACJA HP
     player.hp = math.min(player.maxHp, player.hp + player.hpRegen * dt)
     
     -- REGENERACJA MANY
     player.mana = math.min(player.maxMana, player.mana + player.manaRegen * dt)
     
-    -- [[ DODANA REGENERACJA STAMINY ]]
-    -- Jeśli Stamina ma się regenerować automatycznie, należy użyć:
-    -- player.stamina = math.min(player.maxStamina, player.stamina + player.staminaRegen * dt)
-    -- W przeciwnym razie, zostaw ten wiersz zakomentowany (jak w oryginalnej uwadze).
-    
-    -- Stamina jest regenerowana w movement, bo zależy od sprintu, ale można by tu przenieść
 end
 
 return Stats

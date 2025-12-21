@@ -88,6 +88,7 @@ local items = {
         image = nil,
         type = "artifact"
     }
+   
 }
 
 -- Funkcja inicjalizująca obrazki

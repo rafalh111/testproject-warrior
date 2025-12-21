@@ -27,7 +27,7 @@ function player:load(world, anim8)
     }
     self.anim = self.animations.down
 
-    -- Inicjalizacja modułów (w nich są teraz wszystkie zmienne stanu: hp, ammo, speed, itp.)
+    -- Inicjalizacja modułów
     Stats:init(self)
     Movement:init(self)
     Combat:init(self)
@@ -37,7 +37,8 @@ function player:load(world, anim8)
 end
 
 function player:update(dt)
-    if leveling.levelUpAvailable then
+    -- === POPRAWKA: Blokada tylko gdy OKNO jest OTWARTE ===
+    if leveling.isOpen then
         self.collider:setLinearVelocity(0, 0)
         self.anim:update(dt)
         return
@@ -57,7 +58,8 @@ function player:update(dt)
 end
 
 function player:keypressed(key)
-    if leveling.levelUpAvailable then return end
+    -- === POPRAWKA: Blokada klawiszy tylko gdy menu otwarte ===
+    if leveling.isOpen then return end
     
     local mappedKey = MapKey(key)
 
@@ -71,11 +73,11 @@ function player:keypressed(key)
 end
 
 function player:mousepressed(mx, my, button)
-    if leveling.levelUpAvailable then return end
+    -- === POPRAWKA: Blokada strzelania tylko gdy menu otwarte ===
+    if leveling.isOpen then return end
     if _G.Game.state ~= "playing" then return end
     if button ~= 1 then return end
     
-    -- Zakładam że 'cam' jest globalną zmienną z Twojego kodu
     Combat:shoot(self, mx, my, cam) 
 end
 
@@ -85,7 +87,6 @@ function player:draw()
 
     -- === 1. RYSOWANIE GRACZA I BRONI ===
     local function drawPlayerAndWeapon()
-        -- Zabezpieczenie przed błędem, jeśli animacja jest zatrzymana, wróć do domyślnej
         if not self.anim then self.anim = self.animations.down end
 
         if weaponItem and weaponItem.data and weaponItem.data.image then
@@ -116,8 +117,7 @@ function player:draw()
             local function drawWeapon()
                 love.graphics.draw(
                     weaponImg,
-                    wx,
-                    wy,
+                    wx, wy,
                     rotation,
                     sx, sy,
                     weaponImg:getWidth()/2,
@@ -139,18 +139,16 @@ function player:draw()
 
     drawPlayerAndWeapon()
 
-    -- === 2. HUD AMUNICJI (ORYGINALNA IMPLEMENTACJA) ===
+    -- === 2. HUD AMUNICJI ===
     if weaponItem and weaponItem.data and (weaponItem.data.name == "AssaultRifle" or weaponItem.data.name == "Shotgun") then
         love.graphics.push()
-        love.graphics.origin() -- Rysowanie na ekranie (stałe)
+        love.graphics.origin() 
         love.graphics.setColor(1,1,1)
         local w, h = love.graphics.getWidth(), love.graphics.getHeight()
 
-        -- Używamy pól 'currentAmmo' i 'currentExtraAmmo', które są ustawiane w Stats:calculate
         local currentAmmo = self.currentAmmo or 0
         local maxAmmo = self.currentExtraAmmo or 0
 
-        -- ORYGINALNE WSPÓŁRZĘDNE: x=0, y=h-50, width=w-100, align="center"
         if self.reloading then
             love.graphics.printf("RELOADING...", 0, h-50, w-100, "center", 0, 2, 2)
         else
@@ -159,7 +157,7 @@ function player:draw()
         love.graphics.pop()
     end
     
-    -- === 3. RYSOWANIE PASKA STAMINY ===
+    -- === 3. PASKO STAMINY ===
     if self.stamina < self.maxStamina then
         local barWidth = 50
         local barHeight = 6
@@ -175,7 +173,6 @@ function player:draw()
         love.graphics.rectangle("fill", barX, barY, staminaWidth, barHeight, 3, 3)
 
         love.graphics.setColor(1,1,1)
-        love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", barX, barY, barWidth, barHeight, 3, 3)
     end
 
@@ -183,14 +180,6 @@ function player:draw()
     if self.name then
         love.graphics.setColor(1,1,1)
         love.graphics.printf(self.name, self.x-50, self.y-70+self.jumpHeight, 100, "center")
-    end
-
-    -- DEBUG hitbox
-    if debugMode and self.collider then
-        love.graphics.setColor(1,0,0,0.5)
-        local cx, cy = self.collider:getPosition()
-        love.graphics.rectangle("line", cx-self.width/2, cy-self.height/2+self.jumpHeight, self.width, self.height)
-        love.graphics.setColor(1,1,1)
     end
 end
 

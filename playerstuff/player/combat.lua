@@ -7,7 +7,7 @@ function Combat:init(player)
 
     player.ammo = player.ammo or 32
     player.extraAmmo = player.extraAmmo or 9999
-    player.shotgunAmmo = player.shotgunAmmo or 8
+    player.shotgunAmmo = player.shotgunAmmo or 12
     player.extraShotgunAmmo = player.extraShotgunAmmo or 9999
     
     player.currentAmmo = 0
@@ -47,7 +47,7 @@ function Combat:finishReload(player)
     if weaponItem.data.name == "Shotgun" then
         local needed = 4 - (player.shotgunAmmo or 0)
         if (player.extraShotgunAmmo or 0) >= needed then
-            player.shotgunAmmo = 4
+            player.shotgunAmmo = 12
             player.extraShotgunAmmo = player.extraShotgunAmmo - needed
         else
             player.shotgunAmmo = (player.shotgunAmmo or 0) + (player.extraShotgunAmmo or 0)
